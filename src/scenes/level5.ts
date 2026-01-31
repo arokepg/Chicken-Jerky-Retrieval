@@ -1,6 +1,7 @@
 // Level 5: The CEO's Office - SURVIVAL BOSS FIGHT (60s Endurance)
 import { KaboomCtx, GameObj } from "kaboom";
 import { MaskManager } from "../mechanics/MaskManager.ts";
+import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
 import { gameState } from "../state.ts";
 import { LEVEL_DIALOGUES } from "../constants.ts";
 import { showDialogue } from "./dialogue.ts";
@@ -17,11 +18,14 @@ const PHASE_2_END = 40; // 20-40s: Document Storm
 export function level5Scene(k: KaboomCtx): void {
   const map = LEVEL_5_MAP;
   
-  // Initialize camera with zoom
+  // Setup pause system (ESC to pause)
+  setupPauseSystem(k);
+  
+  // Initialize camera with zoom (adjusted for larger map)
   const camera = new CameraController(k, {
-    zoom: 2.5,
-    lerpSpeed: 0.12,
-    lookAheadDistance: 15
+    zoom: 2.2, // Slightly zoomed out to see more of the arena
+    lerpSpeed: 0.1,
+    lookAheadDistance: 20
   });
   
   camera.setBounds(0, 0, map.width, map.height);
@@ -37,7 +41,7 @@ export function level5Scene(k: KaboomCtx): void {
 
   // Get spawn position from map
   const playerSpawn = getPlayerSpawn(map);
-  const bossPos = { x: map.width / 2, y: TILE_SIZE * 4 };
+  const bossPos = { x: map.width / 2, y: TILE_SIZE * 5 }; // Top-center of larger map
 
   // Create player
   const player = createPlayer(k, playerSpawn.x, playerSpawn.y, maskManager);
@@ -514,9 +518,12 @@ export function level5Scene(k: KaboomCtx): void {
     gameState.damagePlayer(1);
     camera.shake(10, 0.3);
     
-    // Knockback away from boss
+    // Knockback away from boss (with boundary clamping)
     const knockDir = player.pos.sub(boss.pos).unit();
-    player.pos = player.pos.add(knockDir.scale(50));
+    const newX = player.pos.x + knockDir.x * 50;
+    const newY = player.pos.y + knockDir.y * 50;
+    player.pos.x = k.clamp(newX, TILE_SIZE * 1.5, map.width - TILE_SIZE * 1.5);
+    player.pos.y = k.clamp(newY, TILE_SIZE * 1.5, map.height - TILE_SIZE * 1.5);
 
     gameState.setInvincible(true);
     k.wait(1, () => { gameState.setInvincible(false); });
@@ -534,6 +541,38 @@ export function level5Scene(k: KaboomCtx): void {
 
 // Build level tiles from ASCII map
 function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
+  const mapWidth = map.tiles[0].length * TILE_SIZE;
+  const mapHeight = map.tiles.length * TILE_SIZE;
+
+  // ============= DECORATIVE BACKGROUND =============
+  // Dark luxurious floor base
+  k.add([
+    k.rect(mapWidth, mapHeight),
+    k.pos(0, 0),
+    k.color(40, 30, 50),
+    k.z(-2)
+  ]);
+
+  // Red carpet path (center of room, from player to boss)
+  const carpetWidth = TILE_SIZE * 8;
+  k.add([
+    k.rect(carpetWidth, mapHeight - TILE_SIZE * 4),
+    k.pos(mapWidth / 2 - carpetWidth / 2, TILE_SIZE * 2),
+    k.color(120, 30, 40),
+    k.z(-1)
+  ]);
+
+  // Carpet border (gold trim)
+  k.add([
+    k.rect(carpetWidth + 8, mapHeight - TILE_SIZE * 4 + 8),
+    k.pos(mapWidth / 2 - carpetWidth / 2 - 4, TILE_SIZE * 2 - 4),
+    k.color(180, 140, 60),
+    k.opacity(0),
+    k.outline(4, k.rgb(180, 140, 60)),
+    k.z(-1)
+  ]);
+
+  // Build tiles
   for (let y = 0; y < map.tiles.length; y++) {
     for (let x = 0; x < map.tiles[y].length; x++) {
       const char = map.tiles[y][x];
@@ -558,12 +597,73 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
           "wall"
         ]);
       }
+
+      // Gold pillars (O markers)
+      if (char === 'O') {
+        // Pillar base
+        k.add([
+          k.circle(18),
+          k.pos(posX, posY),
+          k.anchor("center"),
+          k.color(180, 140, 60),
+          k.z(3)
+        ]);
+        // Pillar top (shiny)
+        k.add([
+          k.circle(12),
+          k.pos(posX, posY),
+          k.anchor("center"),
+          k.color(220, 180, 80),
+          k.z(4)
+        ]);
+      }
     }
   }
+
+  // ============= MONEY PILES (Corners) =============
+  const moneyPositions = [
+    { x: TILE_SIZE * 3, y: TILE_SIZE * 3 },
+    { x: mapWidth - TILE_SIZE * 3, y: TILE_SIZE * 3 },
+    { x: TILE_SIZE * 3, y: mapHeight - TILE_SIZE * 3 },
+    { x: mapWidth - TILE_SIZE * 3, y: mapHeight - TILE_SIZE * 3 }
+  ];
+
+  moneyPositions.forEach(pos => {
+    // Money pile (green bills)
+    for (let i = 0; i < 5; i++) {
+      k.add([
+        k.rect(20, 10),
+        k.pos(pos.x + k.rand(-15, 15), pos.y + k.rand(-10, 10)),
+        k.anchor("center"),
+        k.rotate(k.rand(-30, 30)),
+        k.color(100, 180, 100),
+        k.z(1)
+      ]);
+    }
+    // Gold coins
+    for (let i = 0; i < 3; i++) {
+      k.add([
+        k.circle(6),
+        k.pos(pos.x + k.rand(-10, 10), pos.y + k.rand(-10, 10)),
+        k.anchor("center"),
+        k.color(220, 180, 50),
+        k.z(2)
+      ]);
+    }
+  });
+
+  // ============= BOSS THRONE AREA =============
+  // Throne platform
+  k.add([
+    k.rect(TILE_SIZE * 6, TILE_SIZE * 2),
+    k.pos(mapWidth / 2, TILE_SIZE * 3),
+    k.anchor("center"),
+    k.color(60, 40, 70),
+    k.outline(3, k.rgb(180, 140, 60)),
+    k.z(1)
+  ]);
   
   // Add map boundaries
-  const mapWidth = map.tiles[0].length * TILE_SIZE;
-  const mapHeight = map.tiles.length * TILE_SIZE;
   const boundaryThickness = 16;
   
   [[mapWidth + 32, boundaryThickness, -16, -boundaryThickness],

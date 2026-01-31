@@ -1,6 +1,7 @@
 // Level 2: The Debt Office - Survival Level with Interest Rate Mechanic
 import { KaboomCtx, GameObj } from "kaboom";
 import { MaskManager } from "../mechanics/MaskManager.ts";
+import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
 import { gameState } from "../state.ts";
 import { LEVEL_DIALOGUES, MASKS } from "../constants.ts";
 import { showDialogue } from "./dialogue.ts";
@@ -11,6 +12,9 @@ import { TILE_SIZE } from "../loader.ts";
 
 export function level2Scene(k: KaboomCtx): void {
   const map = LEVEL_2_MAP;
+  
+  // Setup pause system (ESC to pause)
+  setupPauseSystem(k);
   
   // Initialize camera with zoom
   const camera = new CameraController(k, {
@@ -91,11 +95,11 @@ export function level2Scene(k: KaboomCtx): void {
   // Safe zone that shrinks over time
   const mapCenterX = map.width / 2;
   const mapCenterY = map.height / 2;
-  const initialSafeRadius = Math.min(map.width, map.height) / 2 - TILE_SIZE * 2;
+  const initialSafeRadius = Math.min(map.width, map.height) / 2 - TILE_SIZE; // Larger initial zone
   let currentSafeRadius = initialSafeRadius;
-  const SHRINK_RATE = 8; // pixels per second
+  const SHRINK_RATE = 5; // pixels per second (slower shrink)
   let outsideDamageTimer = 0;
-  const OUTSIDE_DAMAGE_INTERVAL = 0.5;
+  const OUTSIDE_DAMAGE_INTERVAL = 0.8; // More forgiving damage interval
 
   // Visual for safe zone boundary
   const safeZoneVisual = k.add([
@@ -120,15 +124,15 @@ export function level2Scene(k: KaboomCtx): void {
   // ============= DEBT COLLECTORS =============
   const debtCollectors: GameObj<any>[] = [];
   let collectorSpawnTimer = 0;
-  const COLLECTOR_SPAWN_INTERVAL = 4;
-  const MAX_COLLECTORS = 4;
+  const COLLECTOR_SPAWN_INTERVAL = 6; // Slower collector spawns
+  const MAX_COLLECTORS = 3; // Fewer max collectors
 
   // ============= PROJECTILE SYSTEM =============
   // Debt Manager throws: Rocket (fast straight), Diamond (bounces), Egg (slippery zone)
   const projectiles: GameObj<any>[] = [];
   const slipperyZones: GameObj<any>[] = [];
   let projectileSpawnTimer = 0;
-  const PROJECTILE_SPAWN_INTERVAL = 1.8;
+  const PROJECTILE_SPAWN_INTERVAL = 2.5; // Slower projectile spawns
   const PROJECTILE_TYPES = ["rocket", "diamond", "egg"] as const;
   type ProjectileType = typeof PROJECTILE_TYPES[number];
 
@@ -149,7 +153,8 @@ export function level2Scene(k: KaboomCtx): void {
       k.color(255, 50, 50),
       k.opacity(0.6),
       k.z(7),
-      "hazardous"
+      "hazardous",
+      "temporary_junk" // Tag for cleanup on win
     ]);
     
     // Flash the warning line
@@ -168,12 +173,12 @@ export function level2Scene(k: KaboomCtx): void {
     let projectile: GameObj<any>;
     
     if (type === "rocket") {
-      // Fast straight line
+      // Fast straight line - smaller hitbox for precision dodging
       projectile = k.add([
-        k.polygon([k.vec2(-8, -4), k.vec2(8, 0), k.vec2(-8, 4)]),
+        k.polygon([k.vec2(-6, -3), k.vec2(6, 0), k.vec2(-6, 3)]),
         k.pos(tuSePos.x, tuSePos.y + 30),
         k.anchor("center"),
-        k.area({ shape: new k.Rect(k.vec2(0, 0), 16, 8) }),
+        k.area({ shape: new k.Rect(k.vec2(0, 0), 8, 5), scale: k.vec2(0.6, 0.6) }),
         k.rotate(Math.atan2(dir.y, dir.x) * (180 / Math.PI)),
         k.color(255, 100, 50),
         k.z(8),
@@ -183,16 +188,16 @@ export function level2Scene(k: KaboomCtx): void {
         {
           projType: "rocket",
           dir: dir,
-          speed: 200
+          speed: 160 // Slower speed
         }
       ]);
     } else if (type === "diamond") {
-      // Bounces off walls
+      // Bounces off walls - smaller hitbox
       projectile = k.add([
-        k.polygon([k.vec2(0, -8), k.vec2(8, 0), k.vec2(0, 8), k.vec2(-8, 0)]),
+        k.polygon([k.vec2(0, -6), k.vec2(6, 0), k.vec2(0, 6), k.vec2(-6, 0)]),
         k.pos(tuSePos.x, tuSePos.y + 30),
         k.anchor("center"),
-        k.area({ shape: new k.Rect(k.vec2(0, 0), 12, 12) }),
+        k.area({ shape: new k.Rect(k.vec2(0, 0), 8, 8), scale: k.vec2(0.6, 0.6) }),
         k.color(100, 200, 255),
         k.z(8),
         "projectile",
@@ -201,9 +206,9 @@ export function level2Scene(k: KaboomCtx): void {
         {
           projType: "diamond",
           dir: k.vec2(k.rand(-1, 1), k.rand(0.3, 1)).unit(),
-          speed: 130,
+          speed: 100, // Slower speed
           bounces: 0,
-          maxBounces: 4
+          maxBounces: 3 // Fewer bounces
         }
       ]);
       // Sparkle effect
@@ -211,12 +216,12 @@ export function level2Scene(k: KaboomCtx): void {
         projectile.angle = (projectile.angle || 0) + 180 * k.dt();
       });
     } else {
-      // Egg - splats on ground
+      // Egg - splats on ground, smaller hitbox
       projectile = k.add([
-        k.circle(9),
+        k.circle(7),
         k.pos(tuSePos.x, tuSePos.y + 30),
         k.anchor("center"),
-        k.area({ shape: new k.Rect(k.vec2(0, 0), 14, 14) }),
+        k.area({ shape: new k.Rect(k.vec2(0, 0), 10, 10), scale: k.vec2(0.6, 0.6) }),
         k.color(255, 240, 200),
         k.z(8),
         "projectile",
@@ -225,7 +230,7 @@ export function level2Scene(k: KaboomCtx): void {
         {
           projType: "egg",
           dir: dir,
-          speed: 100,
+          speed: 80, // Slower speed
           targetPos: player.pos.clone()
         }
       ]);
@@ -342,7 +347,8 @@ export function level2Scene(k: KaboomCtx): void {
     k.pos(map.width / 2, 25),
     k.anchor("center"),
     k.color(255, 255, 100),
-    k.z(100)
+    k.z(100),
+    "temporary_junk" // Tag for cleanup on win
   ]);
 
   // Tutorial text at start
@@ -368,7 +374,7 @@ export function level2Scene(k: KaboomCtx): void {
 
   // ============= ELEVATOR MECHANIC =============
   let elevatorOpen = false;
-  const elevatorX = map.width / 2;
+  const elevatorX = map.width - TILE_SIZE * 3; // Top-right corner
   const elevatorY = TILE_SIZE * 1.5;
 
   // Elevator door (initially closed)
@@ -413,6 +419,28 @@ export function level2Scene(k: KaboomCtx): void {
     k.destroyAll("slippery");
     k.destroyAll("babythree");
     k.destroyAll("debt-collector");
+    k.destroyAll("shout");
+    k.destroyAll("temporary_junk"); // Critical: removes timer, warning lines, Pay up! text
+    
+    // Show "Elevator Open!" text (new object, not the destroyed timer)
+    const elevatorOpenText = k.add([
+      k.text("Elevator Open!", { size: 10 }),
+      k.pos(map.width / 2, 25),
+      k.anchor("center"),
+      k.color(100, 255, 100),
+      k.z(100)
+    ]);
+    
+    // Fade out and destroy after 1.5s
+    k.wait(1.5, () => {
+      if (elevatorOpenText.exists()) {
+        k.tween(1, 0, 0.5, (val) => {
+          if (elevatorOpenText.exists()) elevatorOpenText.opacity = val;
+        }, k.easings.easeOutQuad).onEnd(() => {
+          if (elevatorOpenText.exists()) elevatorOpenText.destroy();
+        });
+      }
+    });
     
     // Clear local arrays
     enemies.length = 0;
@@ -458,13 +486,21 @@ export function level2Scene(k: KaboomCtx): void {
         k.z(100)
       ]);
       
-      // Fade out defeat text after 2s
+      // Fade out defeat text after 2s, then destroy tuSe
       k.wait(2, () => {
         if (defeatText.exists()) {
           k.tween(1, 0, 0.5, (val) => {
             if (defeatText.exists()) defeatText.opacity = val;
           }, k.easings.easeOutQuad).onEnd(() => {
             if (defeatText.exists()) defeatText.destroy();
+          });
+        }
+        // Fade out and destroy tuSe (Debt Manager)
+        if (tuSe && tuSe.exists()) {
+          k.tween(1, 0, 0.5, (val) => {
+            if (tuSe.exists()) tuSe.opacity = val;
+          }, k.easings.easeOutQuad).onEnd(() => {
+            if (tuSe.exists()) tuSe.destroy();
           });
         }
       });
@@ -637,73 +673,97 @@ export function level2Scene(k: KaboomCtx): void {
     // Update camera to follow player
     camera.follow(player, k.mousePos());
 
-    // ===== INTEREST RATE: Shrink safe zone =====
-    currentSafeRadius = Math.max(TILE_SIZE * 3, initialSafeRadius - timeElapsed * SHRINK_RATE);
-    safeZoneVisual.radius = currentSafeRadius;
-    
-    // Update interest rate display
-    const interestRate = Math.floor((1 - currentSafeRadius / initialSafeRadius) * 100);
-    interestText.text = `Lãi suất: ${interestRate}%`;
-    interestText.color = k.rgb(255, Math.max(0, 255 - interestRate * 2), Math.max(0, 100 - interestRate));
+    // ===== INTEREST RATE: Shrink safe zone (only while level active) =====
+    if (!elevatorOpen) {
+      currentSafeRadius = Math.max(TILE_SIZE * 3, initialSafeRadius - timeElapsed * SHRINK_RATE);
+      safeZoneVisual.radius = currentSafeRadius;
+      
+      // Update interest rate display
+      const interestRate = Math.floor((1 - currentSafeRadius / initialSafeRadius) * 100);
+      interestText.text = `Lãi suất: ${interestRate}%`;
+      interestText.color = k.rgb(255, Math.max(0, 255 - interestRate * 2), Math.max(0, 100 - interestRate));
 
-    // Change safe zone color as it shrinks
-    const dangerLevel = 1 - currentSafeRadius / initialSafeRadius;
-    safeZoneVisual.color = k.rgb(
-      100 + dangerLevel * 155,
-      255 - dangerLevel * 200,
-      100 - dangerLevel * 100
-    );
+      // Change safe zone color as it shrinks
+      const dangerLevel = 1 - currentSafeRadius / initialSafeRadius;
+      safeZoneVisual.color = k.rgb(
+        100 + dangerLevel * 155,
+        255 - dangerLevel * 200,
+        100 - dangerLevel * 100
+      );
 
-    // Check if player is outside safe zone
-    const distFromCenter = player.pos.dist(k.vec2(mapCenterX, mapCenterY));
-    if (distFromCenter > currentSafeRadius) {
-      outsideDamageTimer += dt;
-      // Visual warning - flash screen red
-      player.color = k.rgb(255, 100, 100);
+      // Check if player is outside safe zone
+      const distFromCenter = player.pos.dist(k.vec2(mapCenterX, mapCenterY));
+      if (distFromCenter > currentSafeRadius) {
+        outsideDamageTimer += dt;
+        
+        // Visual warning - tint player red when outside zone
+        if (!gameState.isInvincible() && !gameState.isPlayerEthereal()) {
+          player.color = k.rgb(255, 100, 100);
+        }
       
       if (outsideDamageTimer >= OUTSIDE_DAMAGE_INTERVAL) {
         outsideDamageTimer = 0;
-        gameState.damagePlayer(1);
-        camera.shake(5, 0.2);
         
-        if (gameState.isPlayerDead()) {
-          k.go("gameover");
-          return;
+        // Only damage if not invincible
+        if (!gameState.isInvincible() && !gameState.isPlayerEthereal()) {
+          gameState.damagePlayer(1);
+          camera.shake(5, 0.2);
+          
+          // Brief invincibility to prevent rapid damage
+          gameState.setInvincible(true);
+          const blinkLoop = k.loop(0.1, () => {
+            player.opacity = player.opacity > 0.5 ? 0.3 : 1;
+          });
+          k.wait(0.5, () => {
+            blinkLoop.cancel();
+            player.opacity = 1;
+            gameState.setInvincible(false);
+          });
+          
+          if (gameState.isPlayerDead()) {
+            k.go("gameover");
+            return;
+          }
         }
       }
     } else {
       outsideDamageTimer = 0;
+      // Restore normal color when back in safe zone
+      if (!gameState.isPlayerEthereal() && !gameState.isInvincible()) {
+        player.color = k.rgb(79, 195, 247);
+      }
     }
+    } // End of !elevatorOpen block for safe zone mechanics
 
-    // Update timer display
-    const remaining = Math.max(0, SURVIVAL_TIME - timeElapsed);
-    timerText.text = `Time: ${remaining.toFixed(1)}s`;
+    // Update timer display (only if elevator not yet open)
+    if (!elevatorOpen && timerText.exists()) {
+      const remaining = Math.max(0, SURVIVAL_TIME - timeElapsed);
+      timerText.text = `Time: ${remaining.toFixed(1)}s`;
+    }
 
     // Check for victory
     if (timeElapsed >= SURVIVAL_TIME && !elevatorOpen) {
       // Open elevator instead of immediate level complete
       openElevator();
-      timerText.text = "Elevator Open!";
-      timerText.color = k.rgb(100, 255, 100);
     }
 
     // Spawn more babythree enemies
     spawnTimer += dt;
-    if (spawnTimer >= SPAWN_INTERVAL) {
+    if (spawnTimer >= SPAWN_INTERVAL && !elevatorOpen) {
       spawnTimer = 0;
       spawnBabythree();
     }
 
     // Spawn debt collectors periodically
     collectorSpawnTimer += dt;
-    if (collectorSpawnTimer >= COLLECTOR_SPAWN_INTERVAL && timeElapsed > 3) {
+    if (collectorSpawnTimer >= COLLECTOR_SPAWN_INTERVAL && timeElapsed > 3 && !elevatorOpen) {
       collectorSpawnTimer = 0;
       spawnDebtCollector();
     }
 
     // Spawn projectiles from Debt Manager
     projectileSpawnTimer += dt;
-    if (projectileSpawnTimer >= PROJECTILE_SPAWN_INTERVAL && timeElapsed > 1) {
+    if (projectileSpawnTimer >= PROJECTILE_SPAWN_INTERVAL && timeElapsed > 1 && !elevatorOpen) {
       projectileSpawnTimer = 0;
       const randomType = PROJECTILE_TYPES[Math.floor(k.rand(0, PROJECTILE_TYPES.length))];
       spawnProjectile(randomType);
@@ -723,9 +783,9 @@ export function level2Scene(k: KaboomCtx): void {
       }
     });
 
-    // Update enemies - chase player
+    // Update enemies - chase player (stop when elevator open)
     enemies.forEach(enemy => {
-      if (enemy.exists() && !gameState.isTimeFrozen()) {
+      if (enemy.exists() && !gameState.isTimeFrozen() && !elevatorOpen) {
         const dir = player.pos.sub(enemy.pos).unit();
         enemy.move(dir.scale(enemy.speed));
       }
@@ -757,17 +817,31 @@ export function level2Scene(k: KaboomCtx): void {
     gameState.damagePlayer(1);
     camera.shake(8, 0.3);
     
-    // Knockback
+    // Flash player red
+    player.color = k.rgb(255, 50, 50);
+    k.wait(0.2, () => {
+      if (!gameState.isPlayerEthereal()) player.color = k.rgb(79, 195, 247);
+    });
+    
+    // Knockback (with boundary clamping)
     const knockbackDir = player.pos.sub(k.vec2(map.width / 2, map.height / 2)).unit();
-    player.pos = player.pos.add(knockbackDir.scale(30));
+    const newX = player.pos.x + knockbackDir.x * 30;
+    const newY = player.pos.y + knockbackDir.y * 30;
+    player.pos.x = k.clamp(newX, TILE_SIZE * 1.5, map.width - TILE_SIZE * 1.5);
+    player.pos.y = k.clamp(newY, TILE_SIZE * 1.5, map.height - TILE_SIZE * 1.5);
 
     if (gameState.isPlayerDead()) {
       k.go("gameover");
     }
 
-    // Brief invincibility
+    // Brief invincibility with blink effect
     gameState.setInvincible(true);
+    const blinkLoop = k.loop(0.1, () => {
+      player.opacity = player.opacity > 0.5 ? 0.3 : 1;
+    });
     k.wait(1, () => {
+      blinkLoop.cancel();
+      player.opacity = 1;
       gameState.setInvincible(false);
     });
   });
@@ -781,16 +855,31 @@ export function level2Scene(k: KaboomCtx): void {
     gameState.damagePlayer(2);
     camera.shake(12, 0.4);
     
-    // Strong knockback
+    // Flash player red
+    player.color = k.rgb(255, 50, 50);
+    k.wait(0.2, () => {
+      if (!gameState.isPlayerEthereal()) player.color = k.rgb(79, 195, 247);
+    });
+    
+    // Strong knockback (with boundary clamping)
     const knockbackDir = collector.chargeDir;
-    player.pos = player.pos.add(knockbackDir.scale(50));
+    const newX = player.pos.x + knockbackDir.x * 50;
+    const newY = player.pos.y + knockbackDir.y * 50;
+    player.pos.x = k.clamp(newX, TILE_SIZE * 1.5, map.width - TILE_SIZE * 1.5);
+    player.pos.y = k.clamp(newY, TILE_SIZE * 1.5, map.height - TILE_SIZE * 1.5);
 
     if (gameState.isPlayerDead()) {
       k.go("gameover");
     }
 
+    // Invincibility with blink effect
     gameState.setInvincible(true);
+    const blinkLoop = k.loop(0.1, () => {
+      player.opacity = player.opacity > 0.5 ? 0.3 : 1;
+    });
     k.wait(1.5, () => {
+      blinkLoop.cancel();
+      player.opacity = 1;
       gameState.setInvincible(false);
     });
   });
@@ -803,9 +892,18 @@ export function level2Scene(k: KaboomCtx): void {
     gameState.damagePlayer(1);
     camera.shake(6, 0.2);
     
-    // Knockback based on projectile direction
+    // Flash player red
+    player.color = k.rgb(255, 50, 50);
+    k.wait(0.2, () => {
+      if (!gameState.isPlayerEthereal()) player.color = k.rgb(79, 195, 247);
+    });
+    
+    // Knockback based on projectile direction (with boundary clamping)
     if (proj.dir) {
-      player.pos = player.pos.add(proj.dir.scale(20));
+      const newX = player.pos.x + proj.dir.x * 20;
+      const newY = player.pos.y + proj.dir.y * 20;
+      player.pos.x = k.clamp(newX, TILE_SIZE * 1.5, map.width - TILE_SIZE * 1.5);
+      player.pos.y = k.clamp(newY, TILE_SIZE * 1.5, map.height - TILE_SIZE * 1.5);
     }
 
     if (gameState.isPlayerDead()) {
@@ -815,8 +913,14 @@ export function level2Scene(k: KaboomCtx): void {
     // Destroy projectile on hit
     proj.destroy();
 
+    // Invincibility with blink effect
     gameState.setInvincible(true);
+    const blinkLoop = k.loop(0.1, () => {
+      player.opacity = player.opacity > 0.5 ? 0.3 : 1;
+    });
     k.wait(0.8, () => {
+      blinkLoop.cancel();
+      player.opacity = 1;
       gameState.setInvincible(false);
     });
   });
@@ -923,6 +1027,7 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     k.anchor("center"),
     k.area(),
     k.body(),
+    k.health(3),
     k.color(79, 195, 247),
     k.opacity(1),
     k.z(10),
@@ -990,7 +1095,9 @@ function tuSeShout(k: KaboomCtx, tuSe: GameObj<any>): void {
     k.pos(tuSe.pos.x, tuSe.pos.y + 12),
     k.anchor("center"),
     k.color(255, 200, 50),
-    k.z(99)
+    k.z(99),
+    "shout",
+    "temporary_junk" // Tag for cleanup on win
   ]);
 
   k.wait(1.5, () => {

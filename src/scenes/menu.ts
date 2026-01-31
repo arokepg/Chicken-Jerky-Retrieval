@@ -147,7 +147,8 @@ export function gameOverScene(k: KaboomCtx): void {
   k.add([
     k.text(flavorTexts[gameState.getCurrentLevel()] || "Mission failed!", { 
       size: Math.min(16, screenW / 50),
-      width: screenW - 100
+      width: screenW - 100,
+      align: "center"
     }),
     k.pos(screenW / 2, screenH * 0.48),
     k.anchor("center"),

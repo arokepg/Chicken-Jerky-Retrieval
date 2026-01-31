@@ -1,6 +1,7 @@
 // Level 4: The Football Stadium - Theatre of Dreams with chaotic red players
 import { KaboomCtx, GameObj } from "kaboom";
 import { MaskManager } from "../mechanics/MaskManager.ts";
+import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
 import { gameState } from "../state.ts";
 import { LEVEL_DIALOGUES, MASKS } from "../constants.ts";
 import { showDialogue } from "./dialogue.ts";
@@ -11,6 +12,9 @@ import { TILE_SIZE } from "../loader.ts";
 
 export function level4Scene(k: KaboomCtx): void {
   const map = LEVEL_4_MAP;
+  
+  // Setup pause system (ESC to pause)
+  setupPauseSystem(k);
   
   // Initialize camera with zoom
   const camera = new CameraController(k, {
@@ -337,9 +341,9 @@ export function level4Scene(k: KaboomCtx): void {
     gameState.damagePlayer(1);
     camera.shake(8, 0.3);
 
-    // Knockback away from red player
+    // Velocity-based knockback (respects walls via move())
     const knockDir = player.pos.sub(redPlayer.pos).unit();
-    player.pos = player.pos.add(knockDir.scale(40));
+    player.knockbackVel = knockDir.scale(800); // High initial velocity, decays in onUpdate
 
     player.color = k.rgb(255, 100, 100);
     k.wait(0.15, () => {
@@ -440,12 +444,25 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     "player",
     {
       speed: 90,
-      dir: k.vec2(0, 0)
+      dir: k.vec2(0, 0),
+      knockbackVel: k.vec2(0, 0) // Velocity-based knockback
     }
   ]);
 
   player.onUpdate(() => {
     if (gameState.isPaused() || gameState.isDialogueActive()) return;
+
+    const dt = k.dt();
+
+    // ============= APPLY KNOCKBACK VELOCITY =============
+    // Use move() which respects physics/walls instead of direct pos modification
+    if (player.knockbackVel.len() > 1) {
+      player.move(player.knockbackVel);
+      // Decay knockback velocity (friction)
+      player.knockbackVel = player.knockbackVel.lerp(k.vec2(0, 0), dt * 10);
+    } else {
+      player.knockbackVel = k.vec2(0, 0);
+    }
 
     const dir = k.vec2(0, 0);
     if (k.isKeyDown("left") || k.isKeyDown("a")) dir.x -= 1;
@@ -457,6 +474,14 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
       player.dir = dir.unit();
       player.move(player.dir.scale(player.speed));
     }
+
+    // ============= BOUNDARY CLAMP (Safety net) =============
+    const minX = TILE_SIZE * 1.5;
+    const minY = TILE_SIZE * 1.5;
+    const maxX = LEVEL_4_MAP.width - TILE_SIZE * 1.5;
+    const maxY = LEVEL_4_MAP.height - TILE_SIZE * 1.5;
+    player.pos.x = k.clamp(player.pos.x, minX, maxX);
+    player.pos.y = k.clamp(player.pos.y, minY, maxY);
 
     if (gameState.isPlayerShielding()) {
       player.color = k.rgb(255, 215, 0);

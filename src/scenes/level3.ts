@@ -1,6 +1,7 @@
 // Level 3: TWAN Headquarters - Sao Đổi Ngôi falling & Quỷ Vương statues
 import { KaboomCtx, GameObj } from "kaboom";
 import { MaskManager } from "../mechanics/MaskManager.ts";
+import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
 import { gameState } from "../state.ts";
 import { LEVEL_DIALOGUES, MASKS } from "../constants.ts";
 import { showDialogue } from "./dialogue.ts";
@@ -11,6 +12,9 @@ import { TILE_SIZE } from "../loader.ts";
 
 export function level3Scene(k: KaboomCtx): void {
   const map = LEVEL_3_MAP;
+  
+  // Setup pause system (ESC to pause)
+  setupPauseSystem(k);
   
   // Initialize camera with zoom
   const camera = new CameraController(k, {

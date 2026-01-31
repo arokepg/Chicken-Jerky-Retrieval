@@ -163,8 +163,8 @@ class GameStateManager {
   // Prepare for level (set appropriate mask)
   prepareForLevel(level: number): void {
     this.state.currentLevel = level;
-    this.state.player.health = level === 2 ? 999 : 3; // Level 2 is survival, no health needed
-    this.state.player.maxHealth = level === 2 ? 999 : 3;
+    this.state.player.health = 3; // All levels use 3 HP
+    this.state.player.maxHealth = 3;
     
     // Set mask based on level
     const maskForLevel: Record<number, string> = {

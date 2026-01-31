@@ -80,7 +80,7 @@ export function introScene(k: KaboomCtx): void {
     fadeToLevel1(k);
   });
 
-  // Next Button (Bottom Right) - "Tiếp theo >>"
+  // Next Button (Bottom Right) - "Next >>"
   const nextBtnBg = k.add([
     k.rect(140, 44, { radius: 8 }),
     k.pos(screenW - 160, screenH - 60),
@@ -94,7 +94,7 @@ export function introScene(k: KaboomCtx): void {
   ]);
 
   const nextBtnText = k.add([
-    k.text("Tiếp theo >>", { size: 18 }),
+    k.text("Next >>", { size: 18 }),
     k.pos(screenW - 90, screenH - 38),
     k.anchor("center"),
     k.color(220, 255, 220),

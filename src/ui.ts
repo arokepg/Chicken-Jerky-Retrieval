@@ -27,73 +27,86 @@ export function createGameUI(k: KaboomCtx): GameUI {
     k.z(1000)
   ]);
 
-  // Health hearts
+  // Health hearts - SCALED UP for visibility
   const hearts: GameObj<any>[] = [];
   for (let i = 0; i < 3; i++) {
     const heart = container.add([
       k.sprite("heart"),
-      k.pos(10 + i * 16, 10),
-      k.scale(1.5),
+      k.pos(20 + i * 50, 20),
+      k.scale(4),
       k.z(1001),
       { index: i }
     ]);
     hearts.push(heart);
   }
 
-  // Mask display
+  // Mask display layout - with HARD separation
+  // Layout: [ ICON ]  (gap)  [ TEXT ]
+  //                          [ BAR  ]
+  const ICON_X = 20;
+  const ICON_Y = 85;
+  const ICON_WIDTH = 80; // Fixed icon box width (larger than sprite to ensure clearance)
+  const GAP = 25; // Hard gap between icon and info
+  const INFO_X = ICON_X + ICON_WIDTH + GAP; // Start X for text and bar = 125
+  const BAR_WIDTH = 160;
+  const BAR_HEIGHT = 22;
+  const BAR_Y = ICON_Y + 40; // Bar positioned near bottom of icon area
+  const TEXT_Y = BAR_Y - 28; // Text positioned above bar
+  
   const maskIcon = container.add([
     k.sprite("mask-silence"),
-    k.pos(10, 40),
-    k.scale(2),
+    k.pos(ICON_X, ICON_Y),
+    k.scale(5),
     k.z(1001)
   ]);
 
+  // Mask name - positioned above the cooldown bar, left-aligned with bar
   const maskNameText = container.add([
-    k.text("No Mask", { size: 10 }),
-    k.pos(50, 42),
+    k.text("No Mask", { size: 18 }),
+    k.pos(INFO_X, TEXT_Y),
     k.color(200, 200, 200),
     k.z(1001)
   ]);
 
   // Enhanced Cooldown bar background with outline
   const cooldownBg = container.add([
-    k.rect(80, 10),
-    k.pos(50, 55),
+    k.rect(BAR_WIDTH, BAR_HEIGHT),
+    k.pos(INFO_X, BAR_Y),
     k.color(20, 20, 30),
-    k.outline(1, k.rgb(60, 60, 80)),
+    k.outline(2, k.rgb(60, 60, 80)),
     k.z(1001)
   ]);
 
   // Cooldown bar fill
   const cooldownBar = container.add([
-    k.rect(78, 8),
-    k.pos(51, 56),
+    k.rect(BAR_WIDTH - 4, BAR_HEIGHT - 4),
+    k.pos(INFO_X + 2, BAR_Y + 2),
     k.color(100, 255, 100),
     k.z(1002)
   ]);
 
   // Cooldown glow effect (shows when ability ready)
   const cooldownGlow = container.add([
-    k.rect(80, 10),
-    k.pos(50, 55),
+    k.rect(BAR_WIDTH, BAR_HEIGHT),
+    k.pos(INFO_X, BAR_Y),
     k.color(100, 255, 100),
     k.opacity(0),
     k.z(1000)
   ]);
 
-  // Cooldown percentage text
+  // Cooldown percentage text - centered in bar
   const cooldownText = container.add([
-    k.text("READY", { size: 7 }),
-    k.pos(90, 60),
+    k.text("READY", { size: 12 }),
+    k.pos(INFO_X + BAR_WIDTH / 2, BAR_Y + BAR_HEIGHT / 2),
     k.anchor("center"),
     k.color(255, 255, 255),
     k.z(1003)
   ]);
 
-  // Level text (top center)
+  // Level text (top center) - larger
   const levelText = container.add([
-    k.text("Floor 1", { size: 12 }),
-    k.pos(k.width() / 2, 10),
+    k.text("Floor 1", { size: 20 }),
+    k.pos(k.width() / 2, 15),
     k.anchor("top"),
     k.color(255, 255, 255),
     k.z(1001)
@@ -159,12 +172,8 @@ export function updateGameUI(
     }
   });
 
-  // Hide hearts for survival level
-  if (currentLevel === 2) {
-    ui.hearts.forEach(h => h.hidden = true);
-  } else {
-    ui.hearts.forEach(h => h.hidden = false);
-  }
+  // Hearts visible on all levels
+  ui.hearts.forEach(h => h.hidden = false);
 
   // Update mask display
   const currentMask = playerState.currentMask;
@@ -178,9 +187,9 @@ export function updateGameUI(
     ui.maskIcon.use(k.sprite(maskSprites[currentMask.id] || "mask-silence"));
     ui.maskNameText.text = currentMask.nameVi;
 
-    // Update cooldown bar with enhanced visuals
+    // Update cooldown bar with enhanced visuals (width: 156 max = BAR_WIDTH - 4)
     const cooldownPercent = 1 - maskManager.getCooldownPercent(currentMask.id);
-    ui.cooldownBar.width = 78 * cooldownPercent;
+    ui.cooldownBar.width = 156 * cooldownPercent;
 
     if (maskManager.canUseAbility(currentMask.id)) {
       // Ready state - green with glow pulse

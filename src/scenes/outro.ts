@@ -84,7 +84,7 @@ export function outroScene(k: KaboomCtx): void {
     showFinalScene();
   });
 
-  // Next Button (Bottom Right) - "Tiếp theo >>"
+  // Next Button (Bottom Right) - "Next >>"
   const nextBtnBg = k.add([
     k.rect(140, 44, { radius: 8 }),
     k.pos(screenW - 160, screenH - 60),
@@ -98,7 +98,7 @@ export function outroScene(k: KaboomCtx): void {
   ]);
 
   const nextBtnText = k.add([
-    k.text("Tiếp theo >>", { size: 18 }),
+    k.text("Next >>", { size: 18 }),
     k.pos(screenW - 90, screenH - 38),
     k.anchor("center"),
     k.color(220, 255, 220),
@@ -234,6 +234,11 @@ export function outroScene(k: KaboomCtx): void {
   function showFinalScene(): void {
     k.get("*").forEach(obj => obj.destroy());
 
+    // Scale factor for the entire scene
+    const SCENE_SCALE = 2.5;
+    const centerX = screenW / 2;
+    const centerY = screenH / 2;
+
     // Living room background
     k.add([
       k.rect(screenW, screenH),
@@ -243,61 +248,61 @@ export function outroScene(k: KaboomCtx): void {
       k.fixed()
     ]);
 
-    // Sofa
+    // Sofa (scaled up)
     k.add([
-      k.rect(300, 120, { radius: 10 }),
-      k.pos(screenW / 2, screenH / 2 + 50),
+      k.rect(300 * SCENE_SCALE, 120 * SCENE_SCALE, { radius: 10 * SCENE_SCALE }),
+      k.pos(centerX, centerY + 80 * SCENE_SCALE),
       k.anchor("center"),
       k.color(120, 80, 60),
       k.z(1),
       k.fixed()
     ]);
 
-    // Vũ sitting
+    // Vũ sitting (scaled up)
     k.add([
       k.sprite("player"),
-      k.pos(screenW / 2 - 60, screenH / 2 + 30),
+      k.pos(centerX - 80 * SCENE_SCALE, centerY + 50 * SCENE_SCALE),
       k.anchor("center"),
-      k.scale(2.5),
+      k.scale(2.5 * SCENE_SCALE),
       k.z(5),
       k.fixed()
     ]);
 
-    // Mom sitting (pink tint)
+    // Mom sitting (pink tint, scaled up)
     k.add([
       k.sprite("player"),
-      k.pos(screenW / 2 + 60, screenH / 2 + 30),
+      k.pos(centerX + 80 * SCENE_SCALE, centerY + 50 * SCENE_SCALE),
       k.anchor("center"),
-      k.scale(2.5),
+      k.scale(2.5 * SCENE_SCALE),
       k.color(255, 180, 200),
       k.z(5),
       k.fixed()
     ]);
 
-    // Chicken jerky jar
+    // Chicken jerky jar (scaled up)
     k.add([
-      k.rect(40, 60, { radius: 5 }),
-      k.pos(screenW / 2, screenH / 2 + 80),
+      k.rect(40 * SCENE_SCALE, 60 * SCENE_SCALE, { radius: 5 * SCENE_SCALE }),
+      k.pos(centerX, centerY + 110 * SCENE_SCALE),
       k.anchor("center"),
       k.color(200, 150, 100),
-      k.outline(2, k.rgb(100, 70, 40)),
+      k.outline(2 * SCENE_SCALE, k.rgb(100, 70, 40)),
       k.z(6),
       k.fixed()
     ]);
 
     k.add([
-      k.text("Golden\nJerky", { size: 10, align: "center" }),
-      k.pos(screenW / 2, screenH / 2 + 80),
+      k.text("Golden\nJerky", { size: 10 * SCENE_SCALE, align: "center" }),
+      k.pos(centerX, centerY + 110 * SCENE_SCALE),
       k.anchor("center"),
       k.color(80, 50, 30),
       k.z(7),
       k.fixed()
     ]);
 
-    // TV
+    // TV (scaled up)
     k.add([
-      k.rect(180, 120, { radius: 8 }),
-      k.pos(screenW / 2, screenH / 2 - 120),
+      k.rect(180 * SCENE_SCALE, 120 * SCENE_SCALE, { radius: 8 * SCENE_SCALE }),
+      k.pos(centerX, centerY - 100 * SCENE_SCALE),
       k.anchor("center"),
       k.color(40, 40, 60),
       k.z(2),
@@ -305,8 +310,8 @@ export function outroScene(k: KaboomCtx): void {
     ]);
 
     k.add([
-      k.rect(160, 100, { radius: 4 }),
-      k.pos(screenW / 2, screenH / 2 - 120),
+      k.rect(160 * SCENE_SCALE, 100 * SCENE_SCALE, { radius: 4 * SCENE_SCALE }),
+      k.pos(centerX, centerY - 100 * SCENE_SCALE),
       k.anchor("center"),
       k.color(100, 150, 200),
       k.z(3),
@@ -314,8 +319,8 @@ export function outroScene(k: KaboomCtx): void {
     ]);
 
     k.add([
-      k.text("LIVE", { size: 14 }),
-      k.pos(screenW / 2, screenH / 2 - 160),
+      k.text("LIVE", { size: 14 * SCENE_SCALE }),
+      k.pos(centerX, centerY - 135 * SCENE_SCALE),
       k.anchor("center"),
       k.color(255, 50, 50),
       k.z(4),
@@ -323,8 +328,8 @@ export function outroScene(k: KaboomCtx): void {
     ]);
 
     k.add([
-      k.text("24h Motion News", { size: 10 }),
-      k.pos(screenW / 2, screenH / 2 - 140),
+      k.text("24h Motion News", { size: 10 * SCENE_SCALE }),
+      k.pos(centerX, centerY - 115 * SCENE_SCALE),
       k.anchor("center"),
       k.color(255, 255, 255),
       k.z(4),
@@ -332,8 +337,8 @@ export function outroScene(k: KaboomCtx): void {
     ]);
 
     k.add([
-      k.text("Evening News", { size: 8 }),
-      k.pos(screenW / 2, screenH / 2 - 125),
+      k.text("Evening News", { size: 8 * SCENE_SCALE }),
+      k.pos(centerX, centerY - 100 * SCENE_SCALE),
       k.anchor("center"),
       k.color(200, 200, 200),
       k.z(4),
