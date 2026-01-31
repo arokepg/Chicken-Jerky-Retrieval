@@ -75,27 +75,27 @@ export function loadAssets(k: KaboomCtx): void {
   k.loadSprite("intro_corp", createIntroSlide(640, 360, "#0f0f23", "#1a1a40", "BAGASSE CORP"));
 
   // ============= PLAYER - Vu Character Sprites =============
-  // Idle - 4 directional frames (Right, Front, Left, Back)
+  // Idle - 4 directional frames (Right, Back, Left, Front)
   k.loadSprite("vu-idle", vuIdle, {
     sliceX: 4,
     sliceY: 1,
     anims: {
       "idle-right": 0,
-      "idle-front": 1,
+      "idle-back": 1,
       "idle-left": 2,
-      "idle-back": 3
+      "idle-front": 3
     }
   });
   
-  // Run animation - 24 frames (6 per direction: Right, Front, Left, Back)
+  // Run animation - 24 frames (6 per direction: Right, Back, Left, Front)
   k.loadSprite("vu-run", vuRun, {
     sliceX: 24,
     sliceY: 1,
     anims: {
       "run-right": { from: 0, to: 5, loop: true, speed: 10 },
-      "run-front": { from: 6, to: 11, loop: true, speed: 10 },
+      "run-back": { from: 6, to: 11, loop: true, speed: 10 },
       "run-left": { from: 12, to: 17, loop: true, speed: 10 },
-      "run-back": { from: 18, to: 23, loop: true, speed: 10 }
+      "run-front": { from: 18, to: 23, loop: true, speed: 10 }
     }
   });
   
