@@ -103,6 +103,8 @@ export class MaskManager {
       const spriteName = MASK_SPRITES[mask.id];
       if (spriteName) {
         this.playerMaskSprite.use(this.k.sprite(spriteName));
+        // Re-apply scale after sprite change (use() resets it)
+        this.playerMaskSprite.scale = this.k.vec2(MASK_SCALE_PLAYER);
         this.playerMaskSprite.opacity = 0.9;
         this.currentMaskId = mask.id;
       }
