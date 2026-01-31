@@ -393,7 +393,7 @@ export function level3Scene(k: KaboomCtx): void {
 
   // Elevator collision - level complete
   player.onCollide("elevator", () => {
-    gameState.addCollectedMask(MASKS.frozen);
+    gameState.addCollectedMask(MASKS.ghost); // Floor 3: Ghost Mask
     
     showDialogue(k, LEVEL_DIALOGUES[3].outro!, () => {
       k.go("level4");

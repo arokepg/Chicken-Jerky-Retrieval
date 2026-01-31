@@ -478,7 +478,7 @@ export function level4Scene(k: KaboomCtx): void {
       gameState.setPaused(false);
       
       // Collect mask and proceed
-      gameState.addCollectedMask(MASKS.shield);
+      gameState.addCollectedMask(MASKS.frozen); // Floor 4: Freeze Mask
       showDialogue(k, LEVEL_DIALOGUES[4].outro!, () => {
         k.go("gate_opening");
       });

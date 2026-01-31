@@ -4,12 +4,12 @@ import { MaskData } from "../types";
 import { gameState } from "../state";
 import { MASKS } from "../constants";
 
-// Color tints for each mask ability
+// Color tints for each mask ability - UPDATED for v2.0
 const MASK_TINTS: Record<string, { r: number; g: number; b: number }> = {
-  silence: { r: 0, g: 255, b: 0 },      // Green - Night Vision
-  ghost: { r: 200, g: 200, b: 255 },    // White/Blue - Ethereal
-  frozen: { r: 0, g: 255, b: 255 },     // Cyan - Frozen
-  shield: { r: 255, g: 50, b: 50 }      // Red - Combat
+  shield: { r: 255, g: 87, b: 34 },     // Orange - Reflective Guard
+  ghost: { r: 156, g: 39, b: 176 },     // Purple - Phase Shift
+  frozen: { r: 0, g: 188, b: 212 },     // Cyan - Flash Freeze
+  silence: { r: 33, g: 33, b: 33 }      // Dark Grey - Null Zone
 };
 
 // Mask sprite names
@@ -201,24 +201,92 @@ export class MaskManager {
     }
   }
 
-  // Mask of Silence - Invisibility
-  private activateSilence(player: GameObj<any>, mask: MaskData): void {
-    gameState.setInvisible(true);
+  // Mask of Silence - Null Zone (disable enemy abilities)
+  private activateSilence(_player: GameObj<any>, mask: MaskData): void {
+    gameState.setInvisible(true); // Repurposed: now disables enemy abilities
     
-    // Visual feedback
-    if (player.opacity !== undefined) {
-      player.opacity = 0.3;
-    }
+    // Create null zone visual (dark expanding circle)
+    const nullZone = this.k.add([
+      this.k.circle(10),
+      this.k.pos(_player.pos),
+      this.k.anchor("center"),
+      this.k.color(33, 33, 33),
+      this.k.opacity(0.5),
+      this.k.z(5),
+      "null-zone"
+    ]);
+    
+    // Expand the zone
+    this.k.tween(10, 80, 0.3, (val) => {
+      if (nullZone.exists()) {
+        nullZone.radius = val;
+      }
+    }, this.k.easings.easeOutQuad);
     
     // Screen tint
     this.activateScreenTint("silence", mask.duration);
 
-    // Play activation sound/effect
-    this.showAbilityText("INVISIBLE!");
+    this.showAbilityText("NULL ZONE!");
 
     // End effect after duration
     this.k.wait(mask.duration, () => {
       gameState.setInvisible(false);
+      if (nullZone.exists()) nullZone.destroy();
+      this.activeEffects.set(mask.id, false);
+    });
+  }
+
+  // Ghost Mask - Phase Shift (dash through barriers)
+  private activateGhost(player: GameObj<any>, mask: MaskData): void {
+    gameState.setEthereal(true);
+    
+    // Get dash direction from player's facing direction
+    const dashDir = player.dir && player.dir.len() > 0 
+      ? player.dir.unit() 
+      : this.k.vec2(1, 0);
+    
+    const DASH_DISTANCE = 100;
+    const dashTarget = player.pos.add(dashDir.scale(DASH_DISTANCE));
+    
+    // Phase shift visual - player becomes translucent
+    if (player.opacity !== undefined) {
+      player.opacity = 0.3;
+    }
+    
+    // Dash tween
+    this.k.tween(
+      player.pos.clone(),
+      dashTarget,
+      mask.duration,
+      (val) => { player.pos = val; },
+      this.k.easings.easeOutQuad
+    );
+    
+    // Ghost trail effect
+    for (let i = 0; i < 5; i++) {
+      this.k.wait(i * 0.08, () => {
+        const trail = this.k.add([
+          this.k.circle(8),
+          this.k.pos(player.pos),
+          this.k.anchor("center"),
+          this.k.color(156, 39, 176),
+          this.k.opacity(0.5),
+          this.k.z(4)
+        ]);
+        this.k.tween(0.5, 0, 0.3, (val) => {
+          if (trail.exists()) trail.opacity = val;
+        }).onEnd(() => trail.destroy());
+      });
+    }
+    
+    // Screen tint
+    this.activateScreenTint("ghost", mask.duration);
+
+    this.showAbilityText("PHASE SHIFT!");
+
+    // End effect after duration
+    this.k.wait(mask.duration, () => {
+      gameState.setEthereal(false);
       if (player.opacity !== undefined) {
         player.opacity = 1;
       }
@@ -226,38 +294,33 @@ export class MaskManager {
     });
   }
 
-  // Ghost Mask - Ethereal Form
-  private activateGhost(player: GameObj<any>, mask: MaskData): void {
-    gameState.setEthereal(true);
-    
-    // Visual feedback - blue tint
-    if (player.color) {
-      player.color = this.k.rgb(129, 212, 250);
-    }
-    
-    // Screen tint
-    this.activateScreenTint("ghost", mask.duration);
-
-    this.showAbilityText("ETHEREAL!");
-
-    // End effect after duration
-    this.k.wait(mask.duration, () => {
-      gameState.setEthereal(false);
-      if (player.color) {
-        player.color = this.k.rgb(79, 195, 247);
-      }
-      this.activeEffects.set(mask.id, false);
-    });
-  }
-
-  // Frozen Mask - Time Freeze
+  // Frozen Mask - Flash Freeze (freeze enemies into platforms)
   private activateFrozen(mask: MaskData): void {
     gameState.setTimeFrozen(true);
+    
+    // Create freeze burst visual
+    const burst = this.k.add([
+      this.k.circle(20),
+      this.k.pos(this.k.width() / 2, this.k.height() / 2),
+      this.k.anchor("center"),
+      this.k.color(0, 188, 212),
+      this.k.opacity(0.6),
+      this.k.z(50),
+      this.k.fixed()
+    ]);
+    
+    this.k.tween(20, 300, 0.4, (val) => {
+      if (burst.exists()) burst.radius = val;
+    }, this.k.easings.easeOutQuad);
+    
+    this.k.tween(0.6, 0, 0.5, (val) => {
+      if (burst.exists()) burst.opacity = val;
+    }).onEnd(() => burst.destroy());
     
     // Screen tint
     this.activateScreenTint("frozen", mask.duration);
 
-    this.showAbilityText("TIME FREEZE!");
+    this.showAbilityText("FLASH FREEZE!");
 
     // End effect after duration
     this.k.wait(mask.duration, () => {
@@ -266,18 +329,54 @@ export class MaskManager {
     });
   }
 
-  // Shield Mask - Reflection
-  private activateShield(_player: GameObj<any>, mask: MaskData): void {
+  // Shield Mask - Reflective Guard (absorb and repel)
+  private activateShield(player: GameObj<any>, mask: MaskData): void {
     gameState.setShielding(true);
+    
+    // Create shield barrier visual
+    const shield = player.add([
+      this.k.circle(20),
+      this.k.anchor("center"),
+      this.k.pos(0, 0),
+      this.k.color(255, 87, 34),
+      this.k.opacity(0.4),
+      this.k.outline(3, this.k.rgb(255, 150, 100)),
+      this.k.z(12),
+      "player-shield"
+    ]);
+    
+    // Pulse effect
+    let pulseTime = 0;
+    const pulseUpdate = shield.onUpdate(() => {
+      pulseTime += this.k.dt() * 4;
+      shield.opacity = 0.3 + Math.sin(pulseTime) * 0.2;
+    });
     
     // Screen tint
     this.activateScreenTint("shield", mask.duration);
 
-    this.showAbilityText("SHIELD!");
+    this.showAbilityText("REFLECTIVE GUARD!");
 
-    // End effect after duration
+    // End effect after duration - trigger repel blast
     this.k.wait(mask.duration, () => {
       gameState.setShielding(false);
+      pulseUpdate.cancel();
+      
+      // Repel blast visual
+      this.k.tween(20, 60, 0.2, (val) => {
+        if (shield.exists()) shield.radius = val;
+      }).onEnd(() => {
+        if (shield.exists()) shield.destroy();
+      });
+      
+      // Push back enemies
+      this.k.get("enemy").forEach(enemy => {
+        if (enemy.pos.dist(player.pos) < 80) {
+          const pushDir = enemy.pos.sub(player.pos).unit();
+          enemy.pos = enemy.pos.add(pushDir.scale(50));
+        }
+      });
+      
       this.activeEffects.set(mask.id, false);
     });
   }

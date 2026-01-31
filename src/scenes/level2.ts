@@ -596,7 +596,7 @@ export function level2Scene(k: KaboomCtx): void {
     if (!elevatorOpen || levelComplete) return;
     
     levelComplete = true;
-    gameState.addCollectedMask(MASKS.ghost);
+    gameState.addCollectedMask(MASKS.shield); // Floor 2: Shield Mask
     
     // Clear everything
     k.destroyAll("hazard");

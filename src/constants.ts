@@ -33,100 +33,110 @@ export const COLORS = {
   }
 };
 
-// Mask definitions
+// Mask definitions - NEW REWORKED ABILITIES (v2.0)
+// Floor 1: Tutorial (no mask)
+// Floor 2: Shield, Floor 3: Ghost, Floor 4: Freeze, Floor 5: Silence
 export const MASKS: Record<string, MaskData> = {
-  silence: {
-    id: "silence",
-    name: "Mask of Silence",
-    nameVi: "Mặt nạ Câm Lặng",
-    color: "#9E9E9E",
-    cooldown: 10,
-    duration: 5,
-    description: "Become invisible for 5 seconds"
+  shield: {
+    id: "shield",
+    name: "Shield Mask",
+    nameVi: "Mặt nạ Khiên",
+    color: "#FF5722",
+    cooldown: 6,
+    duration: 2,
+    description: "Reflective Guard - Absorb projectiles and release Repel Blast",
+    passive: "Reduces frontal damage by 20%",
+    unlockFloor: 2
   },
   ghost: {
     id: "ghost",
     name: "Ghost Mask",
-    nameVi: "Mặt nạ Trốn Nợ",
-    color: "#81D4FA",
-    cooldown: 8,
-    duration: 3,
-    description: "Phase through enemies for 3 seconds"
+    nameVi: "Mặt nạ Hồn Ma",
+    color: "#9C27B0",
+    cooldown: 5,
+    duration: 0.5,
+    description: "Phase Shift - Dash forward, intangible through barriers and enemies",
+    passive: "Silent footsteps, enemies detect you slower",
+    unlockFloor: 3
   },
   frozen: {
     id: "frozen",
-    name: "Frozen Mask",
-    nameVi: "Mặt nạ Tê Liệt",
-    color: "#B3E5FC",
-    cooldown: 12,
+    name: "Freeze Mask",
+    nameVi: "Mặt nạ Băng Giá",
+    color: "#00BCD4",
+    cooldown: 10,
     duration: 4,
-    description: "Freeze all enemies for 4 seconds"
+    description: "Flash Freeze - Turn enemies into ice platforms, freeze machinery",
+    passive: "Slows enemy attack speed in small radius",
+    unlockFloor: 4
   },
-  shield: {
-    id: "shield",
-    name: "Shield Mask",
-    nameVi: "Mặt nạ Bịt Tai",
-    color: "#FFCC80",
-    cooldown: 8,
-    duration: 3,
-    description: "Reflect projectiles for 3 seconds"
+  silence: {
+    id: "silence",
+    name: "Silence Mask",
+    nameVi: "Mặt nạ Câm Lặng",
+    color: "#212121",
+    cooldown: 12,
+    duration: 5,
+    description: "Null Zone - Disable enemy magic, tech abilities and invulnerability",
+    passive: "Reveals invisible traps and enemy weak points",
+    unlockFloor: 5
   }
 };
 
-// Level dialogues
+// Level dialogues - UPDATED for new mask progression
 export const LEVEL_DIALOGUES: Record<number, { intro: DialogueLine[], outro?: DialogueLine[] }> = {
   1: {
     intro: [
-      { speaker: "Vu", text: "Security floor... I need to sneak past these cameras.", color: "#4FC3F7" },
-      { speaker: "Radio", text: "Be careful, they're watching closely.", color: "#81C784" }
+      { speaker: "Vu", text: "The lobby... I need to find the stairs to Floor 2.", color: "#4FC3F7" },
+      { speaker: "Radio", text: "Be careful Vu. This is just the beginning.", color: "#81C784" }
     ],
     outro: [
-      { speaker: "Vu", text: "Made it past floor 1! Something seems to have dropped...", color: "#4FC3F7" },
-      { speaker: "System", text: "You received: Mask of Silence!", color: "#FFCA28" }
+      { speaker: "Vu", text: "Made it to the elevator! Time for Floor 2.", color: "#4FC3F7" },
+      { speaker: "System", text: "Tutorial Complete! Prepare for your first mask...", color: "#FFCA28" }
     ]
   },
   2: {
     intro: [
-      { speaker: "Vu", text: "What's all this noise?", color: "#4FC3F7" },
-      { speaker: "Debt Manager", text: "Hey Vu! You think you can pass? Pay the debt first!", color: "#EF5350" },
-      { speaker: "Debt Manager", text: "Stop right there! Pay up!", color: "#EF5350" }
+      { speaker: "Vu", text: "This place looks dangerous...", color: "#4FC3F7" },
+      { speaker: "???", text: "You'll need protection. Take this Shield Mask.", color: "#FF5722" },
+      { speaker: "System", text: "Shield Mask acquired! Press SPACE to activate Reflective Guard.", color: "#FFCA28" }
     ],
     outro: [
-      { speaker: "Vu", text: "Almost got caught in debt!", color: "#4FC3F7" },
-      { speaker: "System", text: "You received: Ghost Mask!", color: "#FFCA28" }
+      { speaker: "Vu", text: "The Shield saved me! Onwards to Floor 3.", color: "#4FC3F7" },
+      { speaker: "System", text: "Shield Mask mastered!", color: "#FFCA28" }
     ]
   },
   3: {
     intro: [
-      { speaker: "Vu", text: "Why is it so cold here?", color: "#4FC3F7" },
-      { speaker: "Demon Statue", text: "Welcome to TWAN. Watch out for falling stars.", color: "#81C784" },
-      { speaker: "Radio", text: "TWAN Headquarters... Where stars fall constantly.", color: "#81C784" }
+      { speaker: "Vu", text: "Iron bars and laser grids everywhere...", color: "#4FC3F7" },
+      { speaker: "???", text: "Solid walls mean nothing to a ghost. Take this.", color: "#9C27B0" },
+      { speaker: "System", text: "Ghost Mask acquired! Press SPACE to Phase Shift through barriers.", color: "#FFCA28" }
     ],
     outro: [
-      { speaker: "Vu", text: "Made it out alive!", color: "#4FC3F7" },
-      { speaker: "System", text: "You received: Freeze Mask!", color: "#FFCA28" }
+      { speaker: "Vu", text: "I can walk through walls now!", color: "#4FC3F7" },
+      { speaker: "System", text: "Ghost Mask mastered!", color: "#FFCA28" }
     ]
   },
   4: {
     intro: [
-      { speaker: "Vu", text: "Too dark, can't see the way out.", color: "#4FC3F7" },
-      { speaker: "Stadium Gate", text: "Welcome to the Stadium. Wear sunglasses when leaving.", color: "#81C784" },
-      { speaker: "Radio", text: "This is the Red Fan Stadium!", color: "#81C784" }
+      { speaker: "Vu", text: "So many enemies swarming...", color: "#4FC3F7" },
+      { speaker: "???", text: "Freeze them in their tracks. This mask controls ice.", color: "#00BCD4" },
+      { speaker: "System", text: "Freeze Mask acquired! Press SPACE for Flash Freeze.", color: "#FFCA28" }
     ],
     outro: [
-      { speaker: "Vu", text: "Almost at the goal!", color: "#4FC3F7" },
-      { speaker: "System", text: "You received: Shield Mask!", color: "#FFCA28" }
+      { speaker: "Vu", text: "They shatter like glass when frozen!", color: "#4FC3F7" },
+      { speaker: "System", text: "Freeze Mask mastered! One floor remains...", color: "#FFCA28" }
     ]
   },
   5: {
     intro: [
-      { speaker: "Final Boss", text: "Want to get medicine for mom? Step over my body first!", color: "#D32F2F" },
-      { speaker: "Final Boss", text: "This Golden Jerky Box is the corporation's treasure!", color: "#D32F2F" },
-      { speaker: "Vu", text: "Mom is waiting... I can't lose!", color: "#4FC3F7" }
+      { speaker: "The Face Stealer", text: "So you've collected three masks... But I possess ALL FOUR.", color: "#D32F2F" },
+      { speaker: "The Face Stealer", text: "This final mask... the Silence Mask... you must EARN it!", color: "#212121" },
+      { speaker: "Vu", text: "Mom is waiting... I'll take ALL the masks from you!", color: "#4FC3F7" }
     ],
     outro: [
-      { speaker: "Final Boss", text: "Ouch, that hurt... Alright, let me remove the mask.", color: "#D32F2F" },
-      { speaker: "Vu", text: "Mask? What do you mean?", color: "#4FC3F7" }
+      { speaker: "The Face Stealer", text: "Impossible... You mastered every form...", color: "#D32F2F" },
+      { speaker: "System", text: "Silence Mask acquired! All masks collected!", color: "#FFCA28" }
     ]
   }
 };

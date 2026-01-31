@@ -354,11 +354,13 @@ export function showAbilityText(k: KaboomCtx, text: string): void {
 }
 
 // ============= MASK DESCRIPTION DISPLAY (Level Start) =============
+// NEW PROGRESSION: Floor 1 = tutorial, Floor 2-5 = masks
 const MASK_DESCRIPTIONS: Record<number, string> = {
-  1: "Mặt Nạ Câm Lặng: Kích hoạt để Tàng Hình trong thời gian ngắn. Tránh camera!",
-  2: "Mặt Nạ Trốn Nợ: Kích hoạt để đi xuyên vật thể và bất tử. Né 'quà' của sếp!",
-  3: "Mặt Nạ Băng Giá: Kích hoạt để đóng băng kẻ địch và sao rơi. Tạo lối đi!",
-  4: "Mặt Nạ Khiên: Kích hoạt để đẩy lùi cầu thủ đối phương. Dọn đường sút bóng!"
+  1: "Tutorial: Tìm đường đến thang máy. Tránh kẻ địch! (Chưa có mặt nạ)",
+  2: "Mặt Nạ Khiên: Giữ SPACE để hấp thụ đạn, thả để bắn Repel Blast!",
+  3: "Mặt Nạ Hồn Ma: Phase Shift - Lướt xuyên tường và kẻ địch!",
+  4: "Mặt Nạ Băng Giá: Flash Freeze - Đóng băng kẻ địch thành platform!",
+  5: "Boss Fight: Đổi mặt nạ đúng để counter boss! [1-4] để chọn."
 };
 
 export function showMaskDescription(k: KaboomCtx, level: number): void {

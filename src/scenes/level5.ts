@@ -1,38 +1,39 @@
-// Level 5: The CEO's Office - BOSS FIGHT (90s Survival)
-// 3-Phase Meme Boss: "Alo Vu" Copypasta -> Jerky Rain -> Foggy Finale
+// Level 5: THE FACE STEALER - 5-Phase Mask-Counter Boss Fight
+// Player must equip correct mask to counter each phase
 import { KaboomCtx, GameObj } from "kaboom";
 import { MaskManager, MASK_SCALE_UI } from "../mechanics/MaskManager.ts";
 import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
 import { gameState } from "../state.ts";
-import { LEVEL_DIALOGUES } from "../constants.ts";
+import { LEVEL_DIALOGUES, MASKS } from "../constants.ts";
 import { showDialogue } from "./dialogue.ts";
 import { CameraController } from "../camera.ts";
-import { createGameUI, updateGameUI } from "../ui.ts";
+import { createGameUI, updateGameUI, showMaskDescription } from "../ui.ts";
 import { LEVEL_5_MAP, getPlayerSpawn } from "../maps.ts";
 import { TILE_SIZE } from "../loader.ts";
 
 // ============= BOSS FIGHT CONSTANTS =============
-const FIGHT_DURATION = 90; // 90 seconds to survive
-const PHASE_1_END = 30;    // 0-30s: Alo Vu Copypasta
-const PHASE_2_END = 60;    // 30-60s: Jerky Rain
-// 60-90s: Foggy Finale (BOTH attacks + fog)
+const BOSS_MAX_HP = 100;
+const DPS_WINDOW_DURATION = 3; // Seconds of vulnerability after correct counter
+const PHASE_5_CYCLE_TIME = 10; // Seconds between form changes in desperation
 
-const BOSS_MOVE_INTERVAL = 3;
+// Boss phase types - which mask counters which phase
+type BossPhase = "intro" | "wrath" | "phantom" | "overclock" | "arcane" | "desperation" | "defeated";
 
-// Phase 1: Text projectile copypasta lines
-const ALO_VU_COPYPASTA = [
-  "Alo, em có phải Vũ không?",
-  "Ui Vũ ơi… em đừng có chối",
-  "Anh có cả ở đây rồi!",
-  "Vũ có cần anh đọc cho nghe không?",
-  "Vũ ơi… em còn trẻ quá",
-  "Hơn con anh có mấy tuổi à",
-  "Sao Vũ lại làm thế...",
-  "Còn cả tương lai đằng trước...",
-];
+// Phase -> Required mask mapping
+const PHASE_COUNTER_MASK: Record<string, string> = {
+  wrath: "shield",     // Red aura - use Shield to reflect beam
+  phantom: "ghost",    // Grey aura - use Ghost to dodge shockwaves
+  overclock: "frozen", // Blue aura - use Freeze to stun speedy boss
+  arcane: "silence"    // Black aura - use Silence to interrupt spell
+};
 
-// Boss State Machine
-type BossState = "intro" | "phase1" | "phase2" | "phase3" | "win";
+// Phase colors for boss aura
+const PHASE_COLORS: Record<string, [number, number, number]> = {
+  wrath: [255, 50, 50],      // Red
+  phantom: [150, 150, 150],  // Grey
+  overclock: [50, 150, 255], // Blue
+  arcane: [30, 30, 30]       // Black
+};
 
 export function level5Scene(k: KaboomCtx): void {
   const map = LEVEL_5_MAP;
@@ -57,20 +58,17 @@ export function level5Scene(k: KaboomCtx): void {
   maskManager.initPlayerMask(player);
   camera.snapTo(k.vec2(playerSpawn.x, playerSpawn.y));
 
-  // ============= STATE MACHINE =============
-  let bossState: BossState = "intro";
-  let timeRemaining = FIGHT_DURATION;
-  let bossMoveTimer = 0;
-  
-  // Phase timers
-  let textTimer = 0;
-  let jerkyTimer = 0;
-  let currentTextIndex = 0;
-  
-  const TEXT_FIRE_RATE = 1.8;
-  const JERKY_SPAWN_RATE = 0.1; // 10 jerky bags per second - heavy storm
+  // ============= BOSS STATE =============
+  let bossPhase: BossPhase = "intro";
+  let bossHP = BOSS_MAX_HP;
+  let isDPSWindow = false;
+  let dpsWindowTimer = 0;
+  let phaseAttackTimer = 0;
+  let desperationFormTimer = 0;
+  let currentDesperationForm = 0;
+  const desperationForms: BossPhase[] = ["wrath", "phantom", "overclock", "arcane"];
 
-  // Create Boss
+  // ============= CREATE BOSS: The Face Stealer =============
   const boss = k.add([
     k.sprite("boss"),
     k.pos(bossSpawnPos.x, bossSpawnPos.y),
@@ -78,57 +76,77 @@ export function level5Scene(k: KaboomCtx): void {
     k.area({ scale: k.vec2(0.8, 0.8) }),
     k.color(200, 50, 100),
     k.opacity(1),
+    k.scale(1.5),
     k.z(9),
     "boss"
+  ]);
+
+  // Boss aura effect
+  const bossAura = k.add([
+    k.circle(40),
+    k.pos(boss.pos),
+    k.anchor("center"),
+    k.color(255, 50, 50),
+    k.opacity(0.3),
+    k.z(8),
+    "boss-aura"
   ]);
 
   // ============= UI SETUP =============
   const ui = createGameUI(k);
   
-  const TIMER_BAR_WIDTH = 240;
-  const TIMER_BAR_HEIGHT = 14;
-  const TIMER_BAR_Y = 50; // Moved down to avoid overlap with "Floor 5" title
+  // Boss HP Bar
+  const HP_BAR_WIDTH = 280;
+  const HP_BAR_HEIGHT = 18;
+  const HP_BAR_Y = 55;
   
-  const timerBackground = k.add([
-    k.rect(TIMER_BAR_WIDTH + 4, TIMER_BAR_HEIGHT + 4),
-    k.pos(k.width() / 2, TIMER_BAR_Y),
+  k.add([
+    k.rect(HP_BAR_WIDTH + 6, HP_BAR_HEIGHT + 6),
+    k.pos(k.width() / 2, HP_BAR_Y),
     k.anchor("center"),
-    k.color(30, 30, 30),
-    k.outline(2, k.rgb(80, 80, 80)),
-    k.opacity(1),
+    k.color(20, 20, 20),
+    k.outline(2, k.rgb(100, 100, 100)),
     k.z(300),
     k.fixed()
   ]);
 
-  const timerBar = k.add([
-    k.rect(TIMER_BAR_WIDTH, TIMER_BAR_HEIGHT),
-    k.pos(k.width() / 2 - TIMER_BAR_WIDTH / 2, TIMER_BAR_Y - TIMER_BAR_HEIGHT / 2),
-    k.color(255, 215, 0),
-    k.opacity(1),
+  const hpBar = k.add([
+    k.rect(HP_BAR_WIDTH, HP_BAR_HEIGHT),
+    k.pos(k.width() / 2 - HP_BAR_WIDTH / 2, HP_BAR_Y - HP_BAR_HEIGHT / 2),
+    k.color(255, 50, 50),
     k.z(301),
     k.fixed()
   ]);
 
-  const timerText = k.add([
-    k.text(`Survive: ${FIGHT_DURATION}s`, { size: 10 }),
-    k.pos(k.width() / 2, TIMER_BAR_Y),
+  k.add([
+    k.text("THE FACE STEALER", { size: 10 }),
+    k.pos(k.width() / 2, HP_BAR_Y),
     k.anchor("center"),
     k.color(255, 255, 255),
-    k.opacity(1),
     k.z(302),
     k.fixed()
   ]);
 
   const phaseText = k.add([
-    k.text("GET READY!", { size: 9 }),
-    k.pos(k.width() / 2, TIMER_BAR_Y + 18),
+    k.text("PREPARE YOURSELF!", { size: 9 }),
+    k.pos(k.width() / 2, HP_BAR_Y + 20),
     k.anchor("center"),
     k.color(255, 200, 100),
     k.z(302),
     k.fixed()
   ]);
 
-  // Mask UI
+  // Required mask indicator
+  const maskHintText = k.add([
+    k.text("", { size: 8 }),
+    k.pos(k.width() / 2, HP_BAR_Y + 35),
+    k.anchor("center"),
+    k.color(200, 200, 255),
+    k.z(302),
+    k.fixed()
+  ]);
+
+  // Mask selection UI at bottom
   const maskUIContainer = k.add([
     k.pos(k.width() / 2, k.height() - 45),
     k.anchor("center"),
@@ -137,13 +155,12 @@ export function level5Scene(k: KaboomCtx): void {
   ]);
 
   const maskIcons: GameObj<any>[] = [];
-  const UI_ICON_SIZE = 64; // Target pixel size for UI icons
-  const MASK_SPACING = UI_ICON_SIZE + 10; // Spacing based on icon size
+  const MASK_SPACING = 74;
   const masks = [
-    { id: "silence", key: "1", sprite: "mask-silence" },
-    { id: "ghost", key: "2", sprite: "mask-ghost" },
-    { id: "frozen", key: "3", sprite: "mask-frozen" },
-    { id: "shield", key: "4", sprite: "mask-shield" }
+    { id: "shield", key: "1", sprite: "mask-shield", color: k.rgb(255, 87, 34) },
+    { id: "ghost", key: "2", sprite: "mask-ghost", color: k.rgb(156, 39, 176) },
+    { id: "frozen", key: "3", sprite: "mask-frozen", color: k.rgb(0, 188, 212) },
+    { id: "silence", key: "4", sprite: "mask-silence", color: k.rgb(33, 33, 33) }
   ];
 
   masks.forEach((mask, i) => {
@@ -160,263 +177,410 @@ export function level5Scene(k: KaboomCtx): void {
       k.pos(xPos, 0),
       k.anchor("center"),
       k.scale(MASK_SCALE_UI),
-      k.outline(0, k.rgb(255, 215, 0)),
+      k.outline(0, mask.color),
       k.z(401),
       { maskId: mask.id }
     ]);
     maskIcons.push(icon);
   });
 
-  // Red background for intensity
-  const redBackground = k.add([
-    k.rect(k.width(), k.height()),
-    k.pos(0, 0),
-    k.color(150, 0, 0),
-    k.opacity(0),
-    k.z(0),
-    k.fixed()
-  ]);
-
-  // ============= FOG LAYER (Phase 3) - Full Screen Pulsing Overlay =============
-  let fogLayer: GameObj<any> | null = null;
-  let fogPulseTime = 0;
-  const FOG_PULSE_SPEED = 1.5; // Speed of opacity pulse
-
-  function createFog(): void {
-    if (fogLayer) return;
+  // ============= ATTACK PATTERNS =============
+  
+  // Phase 1: WRATH - Room-spanning energy beams
+  function fireEnergyBeam(): void {
+    const beamY = boss.pos.y + 30;
     
-    // Full-screen fog overlay
-    fogLayer = k.add([
-      k.rect(k.width(), k.height()),
-      k.pos(0, 0),
-      k.color(220, 220, 230), // White/grey fog
-      k.opacity(0.85), // Very thick
-      k.z(100), // Just below UI
-      k.fixed(),
-      "fog"
-    ]);
-  }
-
-  function updateFog(): void {
-    if (!fogLayer || !fogLayer.exists()) return;
-    
-    fogPulseTime += k.dt();
-    
-    // Pulsing opacity: 0.8 -> 0.4 -> 0.8 (gives player brief glimpses)
-    // Using sine wave that goes 0.4 to 0.85
-    const pulseValue = Math.sin(fogPulseTime * FOG_PULSE_SPEED);
-    fogLayer.opacity = 0.625 + pulseValue * 0.225; // Range: 0.4 to 0.85
-  }
-
-  // ============= BOSS MOVEMENT =============
-  function moveBossToRandomSpot(): void {
-    const newX = k.rand(TILE_SIZE * 4, map.width - TILE_SIZE * 4);
-    const newY = k.rand(TILE_SIZE * 3, map.height / 2);
-    
-    const speed = bossState === "phase3" ? 0.4 : 0.8; // Faster in phase 3
-    
-    k.tween(
-      boss.pos,
-      k.vec2(newX, newY),
-      speed,
-      (val) => { boss.pos = val; },
-      k.easings.easeOutQuad
-    );
-  }
-
-  // ============= ATTACK 1: TEXT PROJECTILES =============
-  function fireTextProjectile(): void {
-    if (!boss.exists() || !player.exists()) return;
-    
-    const textStr = ALO_VU_COPYPASTA[currentTextIndex % ALO_VU_COPYPASTA.length];
-    currentTextIndex++;
-    
-    const dir = player.pos.sub(boss.pos).unit();
-    
-    const textBullet = k.add([
-      k.text(textStr, { size: 7 }),
-      k.pos(boss.pos.x, boss.pos.y + 20),
-      k.anchor("center"),
+    // Warning line
+    const warning = k.add([
+      k.rect(map.width, 4),
+      k.pos(0, beamY),
       k.color(255, 100, 100),
-      k.area({ shape: new k.Rect(k.vec2(0), textStr.length * 4, 12) }),
-      k.offscreen({ destroy: true, distance: 100 }),
-      k.z(8),
-      "boss_projectile",
-      {
-        dir: dir,
-        speed: 100
-      }
+      k.opacity(0.5),
+      k.z(7)
     ]);
-
-    textBullet.onUpdate(() => {
-      textBullet.move(textBullet.dir.scale(textBullet.speed));
+    
+    k.wait(0.8, () => {
+      if (warning.exists()) warning.destroy();
+      
+      // Fire beam
+      const beam = k.add([
+        k.rect(map.width, 30),
+        k.pos(0, beamY - 15),
+        k.color(255, 50, 50),
+        k.opacity(0.8),
+        k.area(),
+        k.z(8),
+        "energy-beam"
+      ]);
+      
+      k.wait(0.5, () => {
+        if (beam.exists()) beam.destroy();
+      });
     });
   }
 
-  // ============= ATTACK 2: JERKY RAIN (Bullet Hell) =============
-  function spawnJerkyRain(): void {
-    // Spawn from random X at top
-    const x = k.rand(TILE_SIZE * 2, map.width - TILE_SIZE * 2);
-    const y = -10;
-    
-    // Slight random angle for variety
-    const angle = k.rand(-0.3, 0.3);
-    const dir = k.vec2(angle, 1).unit();
-    
-    const jerky = k.add([
-      k.rect(10, 8, { radius: 2 }),
-      k.pos(x, y),
+  // Phase 2: PHANTOM - Spectral shockwaves
+  function fireShockwave(): void {
+    const wave = k.add([
+      k.circle(10),
+      k.pos(boss.pos),
       k.anchor("center"),
-      k.color(139, 90, 43), // Brown jerky color
-      k.outline(1, k.rgb(100, 60, 30)),
-      k.area({ scale: k.vec2(0.6, 0.6) }),
-      k.offscreen({ destroy: true, distance: 50 }),
-      k.z(8),
-      "boss_projectile",
-      "jerky",
-      {
-        dir: dir,
-        speed: 180
-      }
+      k.color(150, 150, 150),
+      k.opacity(0.6),
+      k.outline(3, k.rgb(200, 200, 200)),
+      k.area(),
+      k.z(7),
+      "shockwave",
+      { radius: 10 }
     ]);
 
-    jerky.onUpdate(() => {
-      jerky.move(jerky.dir.scale(jerky.speed));
+    wave.onUpdate(() => {
+      wave.radius += 150 * k.dt();
+      wave.opacity -= 0.3 * k.dt();
+      if (wave.radius > 200) {
+        wave.destroy();
+      }
     });
   }
 
-  // ============= WIN CONDITION =============
-  function triggerWin(): void {
-    bossState = "win";
+  // Phase 3: OVERCLOCK - Hyper-speed dashes
+  function hyperDash(): void {
+    const dashTarget = player.pos.clone();
     
-    k.destroyAll("boss_projectile");
-    if (fogLayer && fogLayer.exists()) fogLayer.destroy();
+    // Blur trail
+    for (let i = 0; i < 5; i++) {
+      k.wait(i * 0.05, () => {
+        const trail = k.add([
+          k.sprite("boss"),
+          k.pos(boss.pos),
+          k.anchor("center"),
+          k.color(50, 150, 255),
+          k.opacity(0.4),
+          k.scale(1.5),
+          k.z(8)
+        ]);
+        k.tween(0.4, 0, 0.3, (v) => { trail.opacity = v; }).onEnd(() => trail.destroy());
+      });
+    }
+    
+    k.tween(boss.pos.clone(), dashTarget, 0.15, (v) => { boss.pos = v; }, k.easings.linear);
+  }
+
+  // Phase 4: ARCANE - World End spell charge
+  let arcaneChargeActive = false;
+  let arcaneChargeTimer = 0;
+  const ARCANE_CHARGE_TIME = 5;
+
+  function startArcaneCharge(): void {
+    arcaneChargeActive = true;
+    arcaneChargeTimer = 0;
+    
+    // Move boss to center
+    k.tween(boss.pos.clone(), k.vec2(map.width / 2, map.height / 3), 0.5, (v) => { boss.pos = v; });
+    
+    // Charging visual
+    k.add([
+      k.text("WORLD END CHARGING...", { size: 10 }),
+      k.pos(boss.pos.x, boss.pos.y - 50),
+      k.anchor("center"),
+      k.color(100, 0, 100),
+      k.z(100),
+      "arcane-warning"
+    ]);
+  }
+
+  // ============= PHASE MANAGEMENT =============
+  function setPhase(newPhase: BossPhase): void {
+    bossPhase = newPhase;
+    phaseAttackTimer = 0;
+    
+    const color = PHASE_COLORS[newPhase] || [200, 50, 100];
+    boss.color = k.rgb(color[0], color[1], color[2]);
+    bossAura.color = k.rgb(color[0], color[1], color[2]);
+    
+    switch (newPhase) {
+      case "wrath":
+        phaseText.text = "WRATH MODE - Shield to Reflect!";
+        phaseText.color = k.rgb(255, 100, 100);
+        maskHintText.text = "Use [1] SHIELD MASK!";
+        maskHintText.color = k.rgb(255, 87, 34);
+        break;
+      case "phantom":
+        phaseText.text = "PHANTOM MODE - Ghost to Dodge!";
+        phaseText.color = k.rgb(150, 150, 150);
+        maskHintText.text = "Use [2] GHOST MASK!";
+        maskHintText.color = k.rgb(156, 39, 176);
+        break;
+      case "overclock":
+        phaseText.text = "OVERCLOCK MODE - Freeze to Stun!";
+        phaseText.color = k.rgb(50, 150, 255);
+        maskHintText.text = "Use [3] FREEZE MASK!";
+        maskHintText.color = k.rgb(0, 188, 212);
+        break;
+      case "arcane":
+        phaseText.text = "ARCANE MODE - Silence to Interrupt!";
+        phaseText.color = k.rgb(100, 50, 150);
+        maskHintText.text = "Use [4] SILENCE MASK!";
+        maskHintText.color = k.rgb(100, 100, 100);
+        startArcaneCharge();
+        break;
+      case "desperation":
+        phaseText.text = "DESPERATION - Quick Swap Masks!";
+        phaseText.color = k.rgb(255, 50, 50);
+        maskHintText.text = "Watch the aura color!";
+        desperationFormTimer = 0;
+        currentDesperationForm = 0;
+        break;
+      case "defeated":
+        phaseText.text = "DEFEATED!";
+        phaseText.color = k.rgb(100, 255, 100);
+        maskHintText.text = "";
+        break;
+    }
+  }
+
+  function checkPhaseTransition(): void {
+    if (bossPhase === "defeated") return;
+    
+    if (bossHP <= 0) {
+      triggerDefeat();
+      return;
+    }
+    
+    // Phase transitions based on HP
+    if (bossHP <= 25 && bossPhase !== "desperation") {
+      setPhase("desperation");
+    } else if (bossHP <= 50 && bossHP > 25 && bossPhase !== "arcane" && bossPhase !== "desperation") {
+      setPhase("arcane");
+    } else if (bossHP <= 75 && bossHP > 50 && bossPhase !== "overclock" && bossPhase !== "arcane" && bossPhase !== "desperation") {
+      setPhase("overclock");
+    }
+  }
+
+  // ============= DPS WINDOW =============
+  function triggerDPSWindow(reason: string): void {
+    isDPSWindow = true;
+    dpsWindowTimer = DPS_WINDOW_DURATION;
+    
+    boss.color = k.rgb(255, 255, 100);
+    bossAura.opacity = 0.6;
+    
+    k.add([
+      k.text(reason, { size: 12 }),
+      k.pos(boss.pos.x, boss.pos.y - 60),
+      k.anchor("center"),
+      k.color(255, 255, 100),
+      k.z(100),
+      { life: 1.5 }
+    ]).onUpdate(function(this: GameObj<any>) {
+      this.pos.y -= 20 * k.dt();
+      this.life -= k.dt();
+      if (this.life <= 0) this.destroy();
+    });
+    
+    // Player can now damage boss
+    k.add([
+      k.text("ATTACK NOW!", { size: 14 }),
+      k.pos(k.width() / 2, k.height() / 2),
+      k.anchor("center"),
+      k.color(255, 255, 0),
+      k.opacity(1),
+      k.z(500),
+      k.fixed()
+    ]).onUpdate(function(this: GameObj<any>) {
+      this.opacity -= k.dt();
+      if (this.opacity <= 0) this.destroy();
+    });
+    
+    camera.shake(10, 0.5);
+  }
+
+  function damageBoss(amount: number): void {
+    if (!isDPSWindow) return;
+    
+    bossHP = Math.max(0, bossHP - amount);
+    camera.shake(5, 0.2);
+    
+    // Flash boss white
+    boss.color = k.rgb(255, 255, 255);
+    k.wait(0.1, () => {
+      if (bossPhase !== "defeated") {
+        const color = PHASE_COLORS[bossPhase] || [200, 50, 100];
+        if (!isDPSWindow) boss.color = k.rgb(color[0], color[1], color[2]);
+      }
+    });
+    
+    checkPhaseTransition();
+  }
+
+  // ============= CORRECT COUNTER CHECK =============
+  function checkMaskCounter(): void {
+    const currentMask = gameState.getPlayerState().currentMask;
+    if (!currentMask) return;
+    
+    const requiredMask = bossPhase === "desperation" 
+      ? PHASE_COUNTER_MASK[desperationForms[currentDesperationForm]]
+      : PHASE_COUNTER_MASK[bossPhase];
+    
+    if (currentMask.id === requiredMask) {
+      // Correct counter!
+      let reason = "";
+      switch (bossPhase === "desperation" ? desperationForms[currentDesperationForm] : bossPhase) {
+        case "wrath": reason = "BEAM REFLECTED!"; break;
+        case "phantom": reason = "PHASED THROUGH!"; break;
+        case "overclock": reason = "FROZEN SOLID!"; break;
+        case "arcane": reason = "SPELL INTERRUPTED!"; break;
+      }
+      
+      if (bossPhase === "arcane") {
+        arcaneChargeActive = false;
+        k.destroyAll("arcane-warning");
+      }
+      
+      triggerDPSWindow(reason);
+    }
+  }
+
+  // ============= DEFEAT =============
+  function triggerDefeat(): void {
+    bossPhase = "defeated";
+    isDPSWindow = false;
+    
+    k.destroyAll("energy-beam");
+    k.destroyAll("shockwave");
+    k.destroyAll("arcane-warning");
     
     boss.color = k.rgb(100, 100, 100);
     boss.opacity = 0.6;
+    bossAura.opacity = 0;
     
-    // Boss tired animation
-    k.add([
-      k.text("*thở hổn hển*", { size: 8 }),
-      k.pos(boss.pos.x, boss.pos.y - 30),
-      k.anchor("center"),
-      k.color(200, 200, 200),
-      k.z(100)
-    ]);
-    
-    camera.shake(15, 0.5);
-    
-    timerBackground.opacity = 0;
-    timerBar.opacity = 0;
-    timerText.opacity = 0;
-    phaseText.text = "YOU WIN!";
+    phaseText.text = "DEFEATED!";
     phaseText.color = k.rgb(100, 255, 100);
-    redBackground.opacity = 0;
-
+    maskHintText.text = "";
+    hpBar.width = 0;
+    
+    camera.shake(20, 1);
+    
+    // Award Silence Mask
+    gameState.addCollectedMask(MASKS.silence);
+    
     k.wait(2, () => {
-      k.go("outro");
+      showDialogue(k, LEVEL_DIALOGUES[5].outro!, () => {
+        k.go("outro");
+      });
     });
   }
 
   // ============= MAIN UPDATE LOOP =============
   k.onUpdate(() => {
     if (gameState.isPaused() || gameState.isDialogueActive()) return;
-    if (bossState === "win") return;
+    if (bossPhase === "defeated") return;
 
     const dt = k.dt();
     maskManager.update(dt);
     maskManager.updatePlayerMask();
     camera.follow(player, k.mousePos());
+    
+    // Update boss aura position
+    bossAura.pos = boss.pos;
+    bossAura.radius = 40 + Math.sin(k.time() * 3) * 5;
 
-    if (bossState === "intro") {
+    if (bossPhase === "intro") {
       updateGameUI(k, ui, maskManager, boss.pos, camera);
       return;
     }
 
-    // ============= TIMER COUNTDOWN =============
-    timeRemaining -= dt;
-    timerText.text = `Survive: ${Math.ceil(timeRemaining)}s`;
-    timerBar.width = TIMER_BAR_WIDTH * (timeRemaining / FIGHT_DURATION);
+    // Update HP bar
+    hpBar.width = HP_BAR_WIDTH * (bossHP / BOSS_MAX_HP);
 
-    if (timeRemaining < 15) {
-      timerBar.color = k.rgb(255, 50, 50);
-    } else if (timeRemaining < 45) {
-      timerBar.color = k.rgb(255, 150, 50);
-    } else {
-      timerBar.color = k.rgb(255, 215, 0);
-    }
-
-    // ============= WIN CHECK =============
-    if (timeRemaining <= 0) {
-      triggerWin();
-      return;
-    }
-
-    // ============= BOSS MOVEMENT =============
-    bossMoveTimer += dt;
-    if (bossMoveTimer >= BOSS_MOVE_INTERVAL) {
-      bossMoveTimer = 0;
-      moveBossToRandomSpot();
-    }
-
-    // ============= PHASE MANAGEMENT =============
-    const timeElapsed = FIGHT_DURATION - timeRemaining;
-    
-    if (timeElapsed < PHASE_1_END) {
-      // PHASE 1: Alo Vu Copypasta (0-30s)
-      bossState = "phase1";
-      phaseText.text = "Phase 1: Alo Vũ Copypasta";
-      phaseText.color = k.rgb(255, 150, 150);
-      boss.color = k.rgb(200, 50, 100);
-      redBackground.opacity = 0;
-      
-      textTimer += dt;
-      if (textTimer >= TEXT_FIRE_RATE && !gameState.isTimeFrozen()) {
-        textTimer = 0;
-        fireTextProjectile();
-      }
-      
-    } else if (timeElapsed < PHASE_2_END) {
-      // PHASE 2: Jerky Rain (30-60s)
-      bossState = "phase2";
-      phaseText.text = "Phase 2: Chicken Jerky Rain!";
-      phaseText.color = k.rgb(139, 90, 43);
-      boss.color = k.rgb(139, 90, 43);
-      redBackground.opacity = 0.1;
-      
-      jerkyTimer += dt;
-      if (jerkyTimer >= JERKY_SPAWN_RATE && !gameState.isTimeFrozen()) {
-        jerkyTimer = 0;
-        spawnJerkyRain();
-      }
-      
-    } else {
-      // PHASE 3: Foggy Finale (60-90s)
-      bossState = "phase3";
-      phaseText.text = "Phase 3: FOGGY FINALE!";
-      phaseText.color = k.rgb(255, 50, 50);
-      boss.color = k.rgb(50, 50, 50);
-      redBackground.opacity = 0.2 + Math.sin(k.time() * 3) * 0.1;
-      
-      // Create fog if not exists
-      if (!fogLayer) createFog();
-      updateFog();
-      
-      // BOTH attacks simultaneously
-      textTimer += dt;
-      if (textTimer >= TEXT_FIRE_RATE * 0.7 && !gameState.isTimeFrozen()) {
-        textTimer = 0;
-        fireTextProjectile();
-      }
-      
-      jerkyTimer += dt;
-      if (jerkyTimer >= JERKY_SPAWN_RATE * 1.2 && !gameState.isTimeFrozen()) {
-        jerkyTimer = 0;
-        spawnJerkyRain();
+    // DPS window countdown
+    if (isDPSWindow) {
+      dpsWindowTimer -= dt;
+      if (dpsWindowTimer <= 0) {
+        isDPSWindow = false;
+        const color = PHASE_COLORS[bossPhase] || [200, 50, 100];
+        boss.color = k.rgb(color[0], color[1], color[2]);
+        bossAura.opacity = 0.3;
       }
     }
 
-    // Update mask UI
+    // Phase-specific attacks
+    if (!isDPSWindow) {
+      phaseAttackTimer += dt;
+      
+      switch (bossPhase) {
+        case "wrath":
+          if (phaseAttackTimer >= 2.5) {
+            phaseAttackTimer = 0;
+            fireEnergyBeam();
+          }
+          break;
+        case "phantom":
+          if (phaseAttackTimer >= 1.5) {
+            phaseAttackTimer = 0;
+            fireShockwave();
+          }
+          boss.opacity = 0.3 + Math.sin(k.time() * 2) * 0.2;
+          break;
+        case "overclock":
+          if (phaseAttackTimer >= 1.0) {
+            phaseAttackTimer = 0;
+            hyperDash();
+          }
+          break;
+        case "arcane":
+          if (arcaneChargeActive) {
+            arcaneChargeTimer += dt;
+            if (arcaneChargeTimer >= ARCANE_CHARGE_TIME) {
+              // Instant kill if not interrupted
+              gameState.damagePlayer(99);
+              if (gameState.isPlayerDead()) {
+                k.go("gameover");
+              }
+            }
+          }
+          break;
+        case "desperation":
+          desperationFormTimer += dt;
+          if (desperationFormTimer >= PHASE_5_CYCLE_TIME) {
+            desperationFormTimer = 0;
+            currentDesperationForm = (currentDesperationForm + 1) % desperationForms.length;
+            
+            const form = desperationForms[currentDesperationForm];
+            const color = PHASE_COLORS[form];
+            boss.color = k.rgb(color[0], color[1], color[2]);
+            bossAura.color = k.rgb(color[0], color[1], color[2]);
+            
+            const maskName = PHASE_COUNTER_MASK[form].toUpperCase();
+            maskHintText.text = `Aura changed! Use ${maskName}!`;
+          }
+          
+          // Random attacks based on current form
+          if (phaseAttackTimer >= 1.5) {
+            phaseAttackTimer = 0;
+            const form = desperationForms[currentDesperationForm];
+            switch (form) {
+              case "wrath": fireEnergyBeam(); break;
+              case "phantom": fireShockwave(); break;
+              case "overclock": hyperDash(); break;
+              case "arcane": 
+                if (!arcaneChargeActive) startArcaneCharge();
+                break;
+            }
+          }
+          break;
+      }
+    }
+
+    // Check for counter when player activates ability
+    if (maskManager.isEffectActive("shield") || 
+        maskManager.isEffectActive("ghost") || 
+        maskManager.isEffectActive("frozen") || 
+        maskManager.isEffectActive("silence")) {
+      checkMaskCounter();
+    }
+
+    // Update mask selection UI
     maskIcons.forEach(icon => {
       const playerState = gameState.getPlayerState();
       if (playerState.currentMask && playerState.currentMask.id === icon.maskId) {
@@ -431,38 +595,44 @@ export function level5Scene(k: KaboomCtx): void {
 
   // ============= COLLISION HANDLERS =============
   
-  player.onCollide("boss_projectile", (projectile: GameObj<any>) => {
+  player.onCollide("energy-beam", () => {
     if (gameState.isPlayerShielding()) {
-      projectile.destroy();
-      camera.shake(5, 0.1);
+      // Reflected! This triggers the counter
       return;
     }
-
     if (gameState.isPlayerEthereal()) return;
     if (gameState.isInvincible()) return;
-
-    projectile.destroy();
+    
     gameState.damagePlayer(1);
     camera.shake(10, 0.3);
-    
-    player.color = k.rgb(255, 100, 100);
-    k.wait(0.15, () => { 
-      if (player.exists()) player.color = k.rgb(79, 195, 247); 
-    });
-
-    if (gameState.isPlayerDead()) {
-      k.go("gameover");
-      return;
-    }
-    
     gameState.setInvincible(true);
-    k.wait(0.8, () => { gameState.setInvincible(false); });
+    k.wait(1, () => { gameState.setInvincible(false); });
+    
+    if (gameState.isPlayerDead()) k.go("gameover");
+  });
+
+  player.onCollide("shockwave", () => {
+    if (gameState.isPlayerEthereal()) return; // Ghost phase dodges
+    if (gameState.isInvincible()) return;
+    
+    gameState.damagePlayer(1);
+    camera.shake(8, 0.2);
+    gameState.setInvincible(true);
+    k.wait(1, () => { gameState.setInvincible(false); });
+    
+    if (gameState.isPlayerDead()) k.go("gameover");
   });
 
   player.onCollide("boss", () => {
+    if (isDPSWindow) {
+      // Attack the boss!
+      damageBoss(10);
+      return;
+    }
+    
     if (gameState.isPlayerEthereal()) return;
     if (gameState.isInvincible()) return;
-    if (bossState === "win") return;
+    if (gameState.isTimeFrozen()) return; // Freeze stuns boss
 
     gameState.damagePlayer(1);
     camera.shake(10, 0.3);
@@ -475,16 +645,17 @@ export function level5Scene(k: KaboomCtx): void {
     gameState.setInvincible(true);
     k.wait(1, () => { gameState.setInvincible(false); });
 
-    if (gameState.isPlayerDead()) {
-      k.go("gameover");
-    }
+    if (gameState.isPlayerDead()) k.go("gameover");
   });
 
   // Start fight after intro dialogue
   showDialogue(k, LEVEL_DIALOGUES[5].intro, () => {
     gameState.setDialogueActive(false);
-    bossState = "phase1";
-    phaseText.text = "Phase 1: Alo Vũ Copypasta";
+    showMaskDescription(k, 5);
+    
+    k.wait(3.5, () => {
+      setPhase("wrath"); // Start with Phase 1
+    });
   });
 }
 
@@ -493,27 +664,20 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
   const mapWidth = map.tiles[0].length * TILE_SIZE;
   const mapHeight = map.tiles.length * TILE_SIZE;
 
+  // Dark background
   k.add([
     k.rect(mapWidth, mapHeight),
     k.pos(0, 0),
-    k.color(40, 30, 50),
+    k.color(30, 20, 40),
     k.z(-2)
   ]);
 
+  // Central carpet
   const carpetWidth = TILE_SIZE * 8;
   k.add([
     k.rect(carpetWidth, mapHeight - TILE_SIZE * 4),
     k.pos(mapWidth / 2 - carpetWidth / 2, TILE_SIZE * 2),
-    k.color(120, 30, 40),
-    k.z(-1)
-  ]);
-
-  k.add([
-    k.rect(carpetWidth + 8, mapHeight - TILE_SIZE * 4 + 8),
-    k.pos(mapWidth / 2 - carpetWidth / 2 - 4, TILE_SIZE * 2 - 4),
-    k.color(180, 140, 60),
-    k.opacity(0),
-    k.outline(4, k.rgb(180, 140, 60)),
+    k.color(100, 20, 30),
     k.z(-1)
   ]);
 
@@ -541,64 +705,10 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
           "wall"
         ]);
       }
-
-      if (char === 'O') {
-        k.add([
-          k.circle(18),
-          k.pos(posX, posY),
-          k.anchor("center"),
-          k.color(180, 140, 60),
-          k.z(3)
-        ]);
-        k.add([
-          k.circle(12),
-          k.pos(posX, posY),
-          k.anchor("center"),
-          k.color(220, 180, 80),
-          k.z(4)
-        ]);
-      }
     }
   }
 
-  const moneyPositions = [
-    { x: TILE_SIZE * 3, y: TILE_SIZE * 3 },
-    { x: mapWidth - TILE_SIZE * 3, y: TILE_SIZE * 3 },
-    { x: TILE_SIZE * 3, y: mapHeight - TILE_SIZE * 3 },
-    { x: mapWidth - TILE_SIZE * 3, y: mapHeight - TILE_SIZE * 3 }
-  ];
-
-  moneyPositions.forEach(pos => {
-    for (let i = 0; i < 5; i++) {
-      k.add([
-        k.rect(20, 10),
-        k.pos(pos.x + k.rand(-15, 15), pos.y + k.rand(-10, 10)),
-        k.anchor("center"),
-        k.rotate(k.rand(-30, 30)),
-        k.color(100, 180, 100),
-        k.z(1)
-      ]);
-    }
-    for (let i = 0; i < 3; i++) {
-      k.add([
-        k.circle(6),
-        k.pos(pos.x + k.rand(-10, 10), pos.y + k.rand(-10, 10)),
-        k.anchor("center"),
-        k.color(220, 180, 50),
-        k.z(2)
-      ]);
-    }
-  });
-
-  k.add([
-    k.rect(TILE_SIZE * 6, TILE_SIZE * 2),
-    k.pos(mapWidth / 2, TILE_SIZE * 3),
-    k.anchor("center"),
-    k.color(60, 40, 70),
-    k.outline(3, k.rgb(180, 140, 60)),
-    k.z(1)
-  ]);
-  
+  // Boundaries
   const boundaryThickness = 16;
   [[mapWidth + 32, boundaryThickness, -16, -boundaryThickness],
    [mapWidth + 32, boundaryThickness, -16, mapHeight],
@@ -630,7 +740,7 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     k.z(10),
     "player",
     {
-      speed: 100,
+      speed: 120,
       dir: k.vec2(0, 0)
     }
   ]);
@@ -653,13 +763,17 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     player.pos.x = k.clamp(player.pos.x, margin, LEVEL_5_MAP.width - margin);
     player.pos.y = k.clamp(player.pos.y, margin, LEVEL_5_MAP.height - margin);
 
+    // Visual feedback based on state
     if (gameState.isPlayerShielding()) {
-      player.color = k.rgb(255, 215, 0);
+      player.color = k.rgb(255, 87, 34);
     } else if (gameState.isPlayerEthereal()) {
-      player.color = k.rgb(200, 150, 255);
+      player.color = k.rgb(156, 39, 176);
       player.opacity = 0.4;
+    } else if (gameState.isTimeFrozen()) {
+      player.color = k.rgb(0, 188, 212);
     } else if (gameState.isPlayerInvisible()) {
-      player.opacity = 0.3;
+      player.color = k.rgb(33, 33, 33);
+      player.opacity = 0.6;
     } else {
       player.color = k.rgb(79, 195, 247);
       player.opacity = 1;
@@ -671,6 +785,7 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     maskManager.activateAbility(player);
   });
 
+  // Mask quick-swap keys
   k.onKeyPress("1", () => maskManager.setMask(0));
   k.onKeyPress("2", () => maskManager.setMask(1));
   k.onKeyPress("3", () => maskManager.setMask(2));

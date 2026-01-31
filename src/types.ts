@@ -9,6 +9,8 @@ export interface MaskData {
   cooldown: number;
   duration: number;
   description: string;
+  passive?: string;      // NEW: Passive ability description
+  unlockFloor?: number;  // NEW: Which floor unlocks this mask
 }
 
 export interface LevelConfig {

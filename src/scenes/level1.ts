@@ -3,7 +3,7 @@ import { KaboomCtx, GameObj } from "kaboom";
 import { MaskManager } from "../mechanics/MaskManager.ts";
 import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
 import { gameState } from "../state.ts";
-import { LEVEL_DIALOGUES, MASKS } from "../constants.ts";
+import { LEVEL_DIALOGUES } from "../constants.ts";
 import { showDialogue } from "./dialogue.ts";
 import { CameraController } from "../camera.ts";
 import { createGameUI, updateGameUI, showMaskDescription } from "../ui.ts";
@@ -175,9 +175,9 @@ export function level1Scene(k: KaboomCtx): void {
     updateGameUI(k, ui, maskManager, k.vec2(elevatorPos.x, elevatorPos.y), camera);
   });
 
-  // Elevator collision - level complete
+  // Elevator collision - level complete (NO MASK on Floor 1 - tutorial)
   player.onCollide("elevator", () => {
-    gameState.addCollectedMask(MASKS.silence);
+    // No mask on tutorial floor
     
     showDialogue(k, LEVEL_DIALOGUES[1].outro!, () => {
       k.go("level2");
