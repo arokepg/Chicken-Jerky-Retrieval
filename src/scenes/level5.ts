@@ -1,7 +1,7 @@
 // Level 5: The CEO's Office - BOSS FIGHT (90s Survival)
 // 3-Phase Meme Boss: "Alo Vu" Copypasta -> Jerky Rain -> Foggy Finale
 import { KaboomCtx, GameObj } from "kaboom";
-import { MaskManager } from "../mechanics/MaskManager.ts";
+import { MaskManager, MASK_SCALE_UI } from "../mechanics/MaskManager.ts";
 import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
 import { gameState } from "../state.ts";
 import { LEVEL_DIALOGUES } from "../constants.ts";
@@ -54,6 +54,7 @@ export function level5Scene(k: KaboomCtx): void {
   const bossSpawnPos = { x: map.width / 2, y: TILE_SIZE * 5 };
 
   const player = createPlayer(k, playerSpawn.x, playerSpawn.y, maskManager);
+  maskManager.initPlayerMask(player);
   camera.snapTo(k.vec2(playerSpawn.x, playerSpawn.y));
 
   // ============= STATE MACHINE =============
@@ -156,7 +157,7 @@ export function level5Scene(k: KaboomCtx): void {
       k.sprite(mask.sprite),
       k.pos(xPos, 0),
       k.anchor("center"),
-      k.scale(2),
+      k.scale(MASK_SCALE_UI),
       k.outline(0, k.rgb(255, 215, 0)),
       k.z(401),
       { maskId: mask.id }
@@ -330,6 +331,7 @@ export function level5Scene(k: KaboomCtx): void {
 
     const dt = k.dt();
     maskManager.update(dt);
+    maskManager.updatePlayerMask();
     camera.follow(player, k.mousePos());
 
     if (bossState === "intro") {

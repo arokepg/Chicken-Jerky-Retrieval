@@ -112,6 +112,7 @@ export function level2Scene(k: KaboomCtx): void {
 
   // Create player
   const player = createPlayer(k, playerSpawn.x, playerSpawn.y, maskManager, map.width, map.height);
+  maskManager.initPlayerMask(player);
   camera.snapTo(k.vec2(playerSpawn.x, playerSpawn.y));
 
   // Create Debt Manager (NPC at top)
@@ -474,6 +475,7 @@ export function level2Scene(k: KaboomCtx): void {
     const dt = k.dt();
     timeElapsed += dt;
     maskManager.update(dt);
+    maskManager.updatePlayerMask();
 
     // Update invincibility
     updateInvincibility(player, dt);

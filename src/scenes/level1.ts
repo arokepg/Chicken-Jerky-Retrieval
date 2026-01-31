@@ -41,6 +41,7 @@ export function level1Scene(k: KaboomCtx): void {
 
   // Create player
   const player = createPlayer(k, playerSpawn.x, playerSpawn.y, maskManager);
+  maskManager.initPlayerMask(player);
 
   // Snap camera to player initially
   camera.snapTo(k.vec2(playerSpawn.x, playerSpawn.y));
@@ -93,6 +94,7 @@ export function level1Scene(k: KaboomCtx): void {
 
     // Update mask manager
     maskManager.update(k.dt());
+    maskManager.updatePlayerMask();
 
     // Update camera to follow player
     camera.follow(player, k.mousePos());
