@@ -99,12 +99,13 @@ export const LEVEL_DIALOGUES: Record<number, { intro: DialogueLine[], outro?: Di
   },
   2: {
     intro: [
-      { speaker: "Vu", text: "The Armory... Turrets everywhere!", color: "#4FC3F7" },
-      { speaker: "???", text: "You'll need protection. Take this Shield Mask.", color: "#FF5722" },
-      { speaker: "System", text: "Shield Mask acquired! Hold SPACE to block. Survive 30 seconds!", color: "#FFCA28" }
+      { speaker: "Vu", text: "The Debt Tunnel... Something's watching me!", color: "#4FC3F7" },
+      { speaker: "The Collector", text: "You owe me... TRIBUTE! You cannot escape!", color: "#8B4513" },
+      { speaker: "???", text: "Take this Shield Mask! It will protect you!", color: "#FF5722" },
+      { speaker: "System", text: "Shield Mask acquired! Survive The Collector for 30 seconds!", color: "#FFCA28" }
     ],
     outro: [
-      { speaker: "Vu", text: "I mastered the Shield! Block, Reflect, Absorb...", color: "#4FC3F7" },
+      { speaker: "Vu", text: "I escaped The Collector! The Shield saved me!", color: "#4FC3F7" },
       { speaker: "System", text: "Shield Mask mastered! Onwards to Floor 3.", color: "#FFCA28" }
     ]
   },

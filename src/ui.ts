@@ -357,7 +357,7 @@ export function showAbilityText(k: KaboomCtx, text: string): void {
 // NEW PROGRESSION: Floor 1 = tutorial, Floor 2-5 = masks
 const MASK_DESCRIPTIONS: Record<number, string> = {
   1: "Tutorial: WASD to Move. Reach the elevator! No mask yet.",
-  2: "Shield Mask: 30s Survival! Phase 1: Block, Phase 2: Reflect, Phase 3: Walk through lasers!",
+  2: "Collector Chase! Phase 1: Run! Phase 2: Shield to anchor! Phase 3: Reflect Debt Notes!",
   3: "Ghost Mask: Phase Shift - Dash through walls and enemies!",
   4: "Freeze Mask: Flash Freeze - Freeze enemies into platforms!",
   5: "Boss Fight: Switch masks to counter boss phases! [1-4] to select."

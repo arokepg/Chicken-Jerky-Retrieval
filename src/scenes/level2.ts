@@ -1,5 +1,7 @@
-// Level 2: The Armory - SHIELD MASK TUTORIAL (30-second 3-Phase Survival)
-// Phase 1: Hold Block, Phase 2: Timed Reflect, Phase 3: Directional Shield
+// Level 2: The Debt Tunnel - COLLECTOR CHASE (30-second 3-Phase Survival)
+// Phase 1: The Chase - Run from Collector
+// Phase 2: The Payment - Shield to anchor against vacuum
+// Phase 3: The Getaway - Reflect Debt Notes back at Collector
 import { KaboomCtx, GameObj } from "kaboom";
 import { MaskManager } from "../mechanics/MaskManager.ts";
 import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
@@ -13,9 +15,9 @@ import { TILE_SIZE } from "../loader.ts";
 
 // ============= PHASE CONSTANTS =============
 const TOTAL_SURVIVAL_TIME = 30;
-const PHASE_1_END = 10;   // 0s - 10s: Basic blocking
-const PHASE_2_END = 20;   // 10s - 20s: Reflect cannonballs
-// Phase 3: 20s - 30s: Laser grid sweep
+const PHASE_1_END = 10;   // 0s - 10s: The Chase
+const PHASE_2_END = 20;   // 10s - 20s: The Payment (Vacuum)
+// Phase 3: 20s - 30s: The Getaway (Debt Notes)
 
 export function level2Scene(k: KaboomCtx): void {
   const map = LEVEL_2_MAP;
@@ -54,28 +56,65 @@ export function level2Scene(k: KaboomCtx): void {
   maskManager.initPlayerMask(player);
   camera.snapTo(k.vec2(playerSpawn.x, playerSpawn.y));
 
-  // ============= TURRETS (4 corners) =============
-  const turretPositions = [
-    { x: TILE_SIZE * 2, y: TILE_SIZE * 2 },
-    { x: map.width - TILE_SIZE * 2, y: TILE_SIZE * 2 },
-    { x: TILE_SIZE * 2, y: map.height - TILE_SIZE * 2 },
-    { x: map.width - TILE_SIZE * 2, y: map.height - TILE_SIZE * 2 }
-  ];
+  // ============= THE COLLECTOR (Main enemy) =============
+  const collectorStartPos = { x: TILE_SIZE * 3, y: TILE_SIZE * 3 };
+  const collector = k.add([
+    k.rect(32, 40, { radius: 4 }),
+    k.pos(collectorStartPos.x, collectorStartPos.y),
+    k.anchor("center"),
+    k.color(100, 100, 100), // Grey when inactive
+    k.outline(3, k.rgb(80, 80, 80)),
+    k.area({ scale: k.vec2(0.8, 0.8) }),
+    k.z(8),
+    "collector",
+    {
+      speed: 90,
+      state: "inactive", // inactive, chase, vacuum, enraged
+      stunTimer: 0
+    }
+  ]);
 
-  const turrets: GameObj<any>[] = [];
-  turretPositions.forEach((pos, i) => {
-    const turret = k.add([
-      k.rect(20, 20, { radius: 4 }),
-      k.pos(pos.x, pos.y),
-      k.anchor("center"),
-      k.color(100, 100, 100), // Inactive grey
-      k.outline(2, k.rgb(150, 150, 150)),
-      k.z(5),
-      "turret",
-      { id: i, fireTimer: k.rand(0, 0.5) }
-    ]);
-    turrets.push(turret);
+  // Collector face
+  collector.onDraw(() => {
+    // Eyes
+    k.drawCircle({ pos: k.vec2(-6, -8), radius: 4, color: k.rgb(255, 255, 255) });
+    k.drawCircle({ pos: k.vec2(6, -8), radius: 4, color: k.rgb(255, 255, 255) });
+    // Pupils (follow player direction)
+    const toPlayer = player.pos.sub(collector.pos).unit();
+    k.drawCircle({ pos: k.vec2(-6 + toPlayer.x * 2, -8 + toPlayer.y * 2), radius: 2, color: k.rgb(200, 0, 0) });
+    k.drawCircle({ pos: k.vec2(6 + toPlayer.x * 2, -8 + toPlayer.y * 2), radius: 2, color: k.rgb(200, 0, 0) });
+    // Mouth
+    if (collector.state === "vacuum") {
+      k.drawCircle({ pos: k.vec2(0, 5), radius: 8, color: k.rgb(0, 0, 0) });
+    } else if (collector.state === "enraged") {
+      k.drawRect({ pos: k.vec2(-8, 3), width: 16, height: 6, color: k.rgb(200, 0, 0) });
+    } else {
+      k.drawRect({ pos: k.vec2(-6, 5), width: 12, height: 4, color: k.rgb(50, 50, 50) });
+    }
+    // State text
+    if (collector.state === "chase") {
+      k.drawText({ text: "💰", pos: k.vec2(0, -25), size: 10, anchor: "center" });
+    } else if (collector.state === "vacuum") {
+      k.drawText({ text: "🌀", pos: k.vec2(0, -25), size: 12, anchor: "center" });
+    } else if (collector.state === "enraged") {
+      k.drawText({ text: "😤", pos: k.vec2(0, -25), size: 10, anchor: "center" });
+    }
   });
+
+  // ============= VACUUM EFFECT VISUALS =============
+  const vacuumRings: GameObj<any>[] = [];
+  for (let i = 0; i < 3; i++) {
+    const ring = k.add([
+      k.circle(30 + i * 25),
+      k.pos(collector.pos.x, collector.pos.y),
+      k.anchor("center"),
+      k.color(100, 50, 150),
+      k.opacity(0),
+      k.outline(2, k.rgb(150, 100, 200)),
+      k.z(3)
+    ]);
+    vacuumRings.push(ring);
+  }
 
   // ============= UI ELEMENTS =============
   const ui = createGameUI(k);
@@ -91,16 +130,16 @@ export function level2Scene(k: KaboomCtx): void {
 
   // Phase indicator
   const phaseText = k.add([
-    k.text("PHASE 1: HOLD BLOCK", { size: 8 }),
+    k.text("THE COLLECTOR AWAITS...", { size: 8 }),
     k.pos(map.width / 2, 32),
     k.anchor("center"),
-    k.color(100, 200, 255),
+    k.color(150, 150, 150),
     k.z(100)
   ]);
 
   // Tutorial hint
   const hintText = k.add([
-    k.text("Hold SPACE to block projectiles!", { size: 7 }),
+    k.text("Use Shield Mask to survive!", { size: 7 }),
     k.pos(map.width / 2, map.height - 20),
     k.anchor("center"),
     k.color(100, 255, 200),
@@ -139,99 +178,6 @@ export function level2Scene(k: KaboomCtx): void {
     k.z(2)
   ]);
 
-  // ============= PHASE 1: SLOW PROJECTILES =============
-  function spawnSlowProjectile(turret: GameObj<any>): void {
-    const dir = player.pos.sub(turret.pos).unit();
-    
-    const proj = k.add([
-      k.circle(6),
-      k.pos(turret.pos.x, turret.pos.y),
-      k.anchor("center"),
-      k.color(255, 150, 50),
-      k.area({ scale: k.vec2(0.6, 0.6) }),
-      k.z(6),
-      "projectile",
-      "blockable",
-      { dir, speed: 60, damage: 1, type: "slow" }
-    ]);
-
-    proj.onUpdate(() => {
-      proj.pos = proj.pos.add(proj.dir.scale(proj.speed * k.dt()));
-      if (proj.pos.x < 0 || proj.pos.x > map.width || proj.pos.y < 0 || proj.pos.y > map.height) {
-        proj.destroy();
-      }
-    });
-  }
-
-  // ============= PHASE 2: CANNONBALLS (Reflectable) =============
-  function spawnCannonball(turret: GameObj<any>): void {
-    const dir = player.pos.sub(turret.pos).unit();
-    
-    // Warning flash on turret
-    turret.color = k.rgb(255, 100, 100);
-    k.wait(0.3, () => { if (turret.exists()) turret.color = k.rgb(200, 50, 50); });
-    
-    const cannon = k.add([
-      k.circle(12),
-      k.pos(turret.pos.x, turret.pos.y),
-      k.anchor("center"),
-      k.color(80, 80, 80),
-      k.outline(3, k.rgb(255, 100, 50)),
-      k.area({ scale: k.vec2(0.7, 0.7) }),
-      k.z(6),
-      "cannonball",
-      "reflectable",
-      { 
-        dir, 
-        speed: 80, 
-        damage: 1, 
-        type: "cannonball",
-        reflected: false,
-        impactTime: 0 // Track when it hits shield
-      }
-    ]);
-
-    cannon.onUpdate(() => {
-      cannon.pos = cannon.pos.add(cannon.dir.scale(cannon.speed * k.dt()));
-      
-      // Spin effect
-      cannon.outline.color = k.rgb(
-        255, 
-        100 + Math.sin(k.time() * 10) * 50,
-        50
-      );
-      
-      if (cannon.pos.x < 0 || cannon.pos.x > map.width || cannon.pos.y < 0 || cannon.pos.y > map.height) {
-        cannon.destroy();
-      }
-    });
-  }
-
-  // ============= PHASE 3: LASER GRID SWEEP =============
-  let laserSweepActive = false;
-  let laserSweepY = 0;
-  let laserSweepDir = 1;
-  const LASER_SWEEP_SPEED = 40;
-
-  function startLaserSweep(): void {
-    if (laserSweepActive) return;
-    laserSweepActive = true;
-    laserSweepY = TILE_SIZE * 2;
-    laserSweepDir = 1;
-  }
-
-  // Laser beam visual
-  const laserBeam = k.add([
-    k.rect(map.width - TILE_SIZE * 2, 8),
-    k.pos(map.width / 2, -100),
-    k.anchor("center"),
-    k.color(255, 50, 50),
-    k.opacity(0),
-    k.area({ scale: k.vec2(0.9, 0.5) }),
-    k.z(6),
-    "laser"
-  ]);
-
   // ============= DAMAGE SYSTEM =============
   let playerInvincible = false;
   let invincibilityTimer = 0;
@@ -267,28 +213,167 @@ export function level2Scene(k: KaboomCtx): void {
     return false;
   }
 
+  // ============= PHASE 1: THE CHASE =============
+  function updateChasePhase(dt: number): void {
+    if (collector.stunTimer > 0) {
+      collector.stunTimer -= dt;
+      collector.color = k.rgb(150, 150, 150);
+      return;
+    }
+    
+    collector.color = k.rgb(139, 69, 19); // Brown - debt collector
+    
+    // Chase player
+    const toPlayer = player.pos.sub(collector.pos).unit();
+    collector.pos = collector.pos.add(toPlayer.scale(collector.speed * dt));
+    
+    // Keep in bounds
+    collector.pos.x = k.clamp(collector.pos.x, TILE_SIZE * 2, map.width - TILE_SIZE * 2);
+    collector.pos.y = k.clamp(collector.pos.y, TILE_SIZE * 2, map.height - TILE_SIZE * 2);
+  }
+
+  // ============= PHASE 2: THE VACUUM =============
+  let vacuumPullStrength = 0;
+  
+  function updateVacuumPhase(dt: number): void {
+    collector.color = k.rgb(80, 0, 120); // Purple - vacuum mode
+    
+    // Collector moves to center
+    const centerPos = k.vec2(map.width / 2, map.height / 2);
+    const toCenter = centerPos.sub(collector.pos);
+    if (toCenter.len() > 5) {
+      collector.pos = collector.pos.add(toCenter.unit().scale(50 * dt));
+    }
+    
+    // Vacuum pull effect on player
+    vacuumPullStrength = 80; // Pull force
+    
+    // Update vacuum rings
+    vacuumRings.forEach((ring, i) => {
+      ring.pos = collector.pos;
+      ring.opacity = 0.3 + Math.sin(k.time() * 3 + i) * 0.2;
+      ring.radius = 40 + i * 30 + Math.sin(k.time() * 4) * 10;
+    });
+    
+    // If NOT shielding, pull player toward collector
+    if (!gameState.isPlayerShielding()) {
+      const toCollector = collector.pos.sub(player.pos).unit();
+      player.pos = player.pos.add(toCollector.scale(vacuumPullStrength * dt));
+      
+      // Damage if too close
+      if (player.pos.dist(collector.pos) < 30) {
+        damagePlayer(1);
+      }
+    } else {
+      // Anchored! Show feedback
+      if (Math.floor(k.time() * 4) % 2 === 0) {
+        player.color = k.rgb(100, 200, 255);
+      }
+    }
+  }
+
+  // ============= PHASE 3: DEBT NOTES (Homing Projectiles) =============
+  let debtNoteTimer = 0;
+  const DEBT_NOTE_INTERVAL = 1.2;
+  
+  function spawnDebtNote(): void {
+    const startPos = collector.pos.clone();
+    const toPlayer = player.pos.sub(startPos).unit();
+    
+    const note = k.add([
+      k.rect(16, 12, { radius: 2 }),
+      k.pos(startPos.x, startPos.y),
+      k.anchor("center"),
+      k.color(50, 150, 50), // Green money color
+      k.outline(2, k.rgb(200, 200, 50)),
+      k.area({ scale: k.vec2(0.7, 0.7) }),
+      k.z(7),
+      "debt_note",
+      "reflectable",
+      {
+        dir: toPlayer,
+        speed: 100,
+        homingStrength: 2,
+        reflected: false
+      }
+    ]);
+
+    // "$" symbol on note
+    note.onDraw(() => {
+      k.drawText({
+        text: note.reflected ? "💫" : "$",
+        pos: k.vec2(0, 0),
+        size: note.reflected ? 10 : 8,
+        anchor: "center",
+        color: note.reflected ? k.rgb(255, 255, 100) : k.rgb(255, 255, 200)
+      });
+    });
+
+    note.onUpdate(() => {
+      if (note.reflected) {
+        // Fly toward collector
+        const toCollector = collector.pos.sub(note.pos).unit();
+        note.dir = toCollector;
+        note.pos = note.pos.add(note.dir.scale(150 * k.dt()));
+      } else {
+        // Home toward player
+        const toPlayer = player.pos.sub(note.pos).unit();
+        note.dir = note.dir.add(toPlayer.scale(note.homingStrength * k.dt())).unit();
+        note.pos = note.pos.add(note.dir.scale(note.speed * k.dt()));
+      }
+      
+      // Out of bounds
+      if (note.pos.x < -50 || note.pos.x > map.width + 50 ||
+          note.pos.y < -50 || note.pos.y > map.height + 50) {
+        note.destroy();
+      }
+    });
+  }
+
+  function updateEnragedPhase(dt: number): void {
+    if (collector.stunTimer > 0) {
+      collector.stunTimer -= dt;
+      collector.color = k.rgb(200, 200, 100); // Stunned
+      return;
+    }
+    
+    collector.color = k.rgb(200, 50, 50); // Red - enraged
+    
+    // Slow chase
+    const toPlayer = player.pos.sub(collector.pos).unit();
+    collector.pos = collector.pos.add(toPlayer.scale(40 * dt));
+    
+    // Keep in bounds
+    collector.pos.x = k.clamp(collector.pos.x, TILE_SIZE * 2, map.width - TILE_SIZE * 2);
+    collector.pos.y = k.clamp(collector.pos.y, TILE_SIZE * 2, map.height - TILE_SIZE * 2);
+    
+    // Spawn debt notes
+    debtNoteTimer += dt;
+    if (debtNoteTimer >= DEBT_NOTE_INTERVAL) {
+      debtNoteTimer = 0;
+      spawnDebtNote();
+    }
+  }
+
   // ============= OPEN ELEVATOR =============
   function openElevator(): void {
     elevatorOpen = true;
     
-    k.destroyAll("projectile");
-    k.destroyAll("cannonball");
-    laserBeam.opacity = 0;
-    laserSweepActive = false;
+    k.destroyAll("debt_note");
+    vacuumRings.forEach(ring => { ring.opacity = 0; });
     
     elevator.color = k.rgb(100, 255, 100);
     elevator.outline.color = k.rgb(50, 255, 50);
     
     k.tween(0, 0.6, 0.5, (val) => { elevatorGlow.opacity = val; });
     
-    phaseText.text = "SURVIVED! GO TO EXIT!";
+    phaseText.text = "ESCAPED! GO TO EXIT!";
     phaseText.color = k.rgb(100, 255, 100);
     hintText.text = "";
     
-    // Turrets deactivate
-    turrets.forEach(t => {
-      if (t.exists()) t.color = k.rgb(60, 60, 60);
-    });
+    // Collector defeated
+    collector.color = k.rgb(100, 100, 100);
+    collector.state = "inactive";
   }
 
   // ============= MAIN UPDATE LOOP =============
@@ -330,109 +415,60 @@ export function level2Scene(k: KaboomCtx): void {
 
     // ============= PHASE LOGIC =============
     if (timeElapsed < PHASE_1_END) {
-      // PHASE 1: Slow projectiles - Hold block
+      // PHASE 1: The Chase
       if (currentPhase !== 1) {
         currentPhase = 1;
-        phaseText.text = "PHASE 1: HOLD BLOCK";
-        phaseText.color = k.rgb(100, 200, 255);
-        hintText.text = "Hold SPACE to block projectiles!";
-        turrets.forEach(t => { t.color = k.rgb(100, 150, 200); });
+        collector.state = "chase";
+        phaseText.text = "PHASE 1: THE CHASE!";
+        phaseText.color = k.rgb(255, 150, 100);
+        hintText.text = "Run away! Shield blocks contact damage!";
       }
-      
-      turrets.forEach(t => {
-        t.fireTimer += dt;
-        if (t.fireTimer >= 1.5) {
-          t.fireTimer = 0;
-          spawnSlowProjectile(t);
-        }
-      });
+      updateChasePhase(dt);
       
     } else if (timeElapsed < PHASE_2_END) {
-      // PHASE 2: Cannonballs - Timed reflect
+      // PHASE 2: The Vacuum
       if (currentPhase !== 2) {
         currentPhase = 2;
-        phaseText.text = "PHASE 2: TIMED REFLECT";
-        phaseText.color = k.rgb(255, 180, 100);
-        hintText.text = "Release SPACE right after impact to reflect!";
-        turrets.forEach(t => { t.color = k.rgb(200, 100, 50); t.fireTimer = 0; });
+        collector.state = "vacuum";
+        phaseText.text = "PHASE 2: THE PAYMENT!";
+        phaseText.color = k.rgb(150, 50, 200);
+        hintText.text = "Hold SHIELD to anchor yourself!";
       }
-      
-      turrets.forEach(t => {
-        t.fireTimer += dt;
-        if (t.fireTimer >= 2.0) {
-          t.fireTimer = k.rand(0, 0.5);
-          spawnCannonball(t);
-        }
-      });
+      updateVacuumPhase(dt);
       
     } else {
-      // PHASE 3: Laser grid sweep - Directional shield walk
+      // PHASE 3: The Getaway (Debt Notes)
       if (currentPhase !== 3) {
         currentPhase = 3;
-        phaseText.text = "PHASE 3: LASER SWEEP";
+        collector.state = "enraged";
+        phaseText.text = "PHASE 3: THE GETAWAY!";
         phaseText.color = k.rgb(255, 50, 50);
-        hintText.text = "Face the laser with SHIELD UP to pass through!";
-        turrets.forEach(t => { t.color = k.rgb(60, 60, 60); }); // Turrets off
-        startLaserSweep();
+        hintText.text = "SHIELD to reflect Debt Notes back!";
+        vacuumRings.forEach(ring => { ring.opacity = 0; });
       }
-      
-      // Update laser sweep
-      if (laserSweepActive) {
-        laserSweepY += LASER_SWEEP_SPEED * laserSweepDir * dt;
-        laserBeam.pos.y = laserSweepY;
-        laserBeam.pos.x = map.width / 2;
-        laserBeam.opacity = 0.8;
-        
-        // Bounce at edges
-        if (laserSweepY >= map.height - TILE_SIZE * 2) {
-          laserSweepDir = -1;
-        } else if (laserSweepY <= TILE_SIZE * 2) {
-          laserSweepDir = 1;
-        }
-      }
+      updateEnragedPhase(dt);
     }
 
     updateGameUI(k, ui, maskManager, player.pos, camera);
   });
 
-  // ============= COLLISION: Projectiles =============
-  player.onCollide("projectile", (proj: GameObj<any>) => {
-    if (gameState.isPlayerShielding()) {
-      // Blocked! Destroy projectile
-      proj.destroy();
-      camera.shake(3, 0.1);
-      // Visual feedback
-      k.add([
-        k.text("BLOCKED!", { size: 8 }),
-        k.pos(player.pos.x, player.pos.y - 20),
-        k.anchor("center"),
-        k.color(100, 200, 255),
-        k.z(200),
-        k.lifespan(0.5),
-        k.move(k.vec2(0, -1), 30)
-      ]);
-      return;
-    }
-    if (!damagePlayer(1)) proj.destroy();
+  // ============= COLLISION: Collector Contact =============
+  player.onCollide("collector", () => {
+    if (collector.state === "vacuum") return; // No contact damage in vacuum phase
+    damagePlayer(1);
   });
 
-  // ============= COLLISION: Cannonballs (Reflectable) =============
-  player.onCollide("cannonball", (cannon: GameObj<any>) => {
-    if (cannon.reflected) {
-      // Already reflected, hitting player again shouldn't happen
-      return;
-    }
+  // ============= COLLISION: Debt Notes =============
+  player.onCollide("debt_note", (note: GameObj<any>) => {
+    if (note.reflected) return; // Already reflected
     
     if (gameState.isPlayerShielding()) {
-      // Mark impact time for timed release
-      cannon.impactTime = k.time();
-      cannon.dir = cannon.dir.scale(-1); // Reverse direction
-      cannon.reflected = true;
-      cannon.speed = 120; // Faster return
-      cannon.color = k.rgb(100, 255, 100); // Green = reflected
-      cannon.outline.color = k.rgb(50, 255, 50);
+      // Reflect the note!
+      note.reflected = true;
+      note.color = k.rgb(255, 255, 100);
+      note.speed = 150;
       
-      camera.shake(5, 0.15);
+      camera.shake(4, 0.1);
       
       k.add([
         k.text("REFLECTED!", { size: 8 }),
@@ -445,43 +481,27 @@ export function level2Scene(k: KaboomCtx): void {
       ]);
       return;
     }
-    damagePlayer(1);
-    cannon.destroy();
-  });
-
-  // Reflected cannonball hits turret
-  turrets.forEach(turret => {
-    turret.onCollide && k.onCollide("cannonball", "turret", (cannon: GameObj<any>, t: GameObj<any>) => {
-      if (cannon.reflected) {
-        cannon.destroy();
-        // Flash turret
-        t.color = k.rgb(255, 255, 100);
-        k.wait(0.2, () => { if (t.exists()) t.color = k.rgb(200, 50, 50); });
-      }
-    });
-  });
-
-  // ============= COLLISION: Laser =============
-  player.onCollide("laser", () => {
-    if (gameState.isPlayerShielding()) {
-      // Shield absorbs laser - no damage
-      return;
-    }
-    damagePlayer(1);
-  });
-
-  // Continuous laser check (area overlap)
-  k.onUpdate(() => {
-    if (!laserSweepActive || levelComplete || !challengeStarted) return;
     
-    // Check if player is in laser area
-    const laserTop = laserSweepY - 4;
-    const laserBottom = laserSweepY + 4;
-    
-    if (player.pos.y >= laserTop && player.pos.y <= laserBottom) {
-      if (!gameState.isPlayerShielding() && !playerInvincible) {
-        damagePlayer(1);
-      }
+    damagePlayer(1);
+    note.destroy();
+  });
+
+  // ============= COLLISION: Reflected Notes hit Collector =============
+  collector.onCollide("debt_note", (note: GameObj<any>) => {
+    if (note.reflected) {
+      note.destroy();
+      collector.stunTimer = 2.0; // Stun for 2 seconds
+      camera.shake(8, 0.2);
+      
+      k.add([
+        k.text("STUNNED!", { size: 10 }),
+        k.pos(collector.pos.x, collector.pos.y - 30),
+        k.anchor("center"),
+        k.color(255, 255, 100),
+        k.z(200),
+        k.lifespan(0.8),
+        k.move(k.vec2(0, -1), 20)
+      ]);
     }
   });
 
@@ -514,14 +534,10 @@ export function level2Scene(k: KaboomCtx): void {
     k.wait(3.5, () => {
       challengeStarted = true;
       
-      // Activate turrets
-      turrets.forEach(t => {
-        if (t.exists()) {
-          k.tween(k.rgb(100, 100, 100), k.rgb(100, 150, 200), 0.3, (c) => {
-            t.color = c;
-          }, k.easings.easeOutQuad);
-        }
-      });
+      // Collector awakens
+      k.tween(k.rgb(100, 100, 100), k.rgb(139, 69, 19), 0.5, (c) => {
+        collector.color = c;
+      }, k.easings.easeOutQuad);
     });
   });
 }
@@ -588,7 +604,7 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     k.z(10),
     "player",
     {
-      speed: 90,
+      speed: 100, // Faster for running away
       dir: k.vec2(0, 0)
     }
   ]);
