@@ -495,13 +495,17 @@ function createPlayer(
   _setPrevDir: (v: any) => void,
   getIsSlipping: () => boolean
 ): GameObj<any> {
+  // Player state machine
+  let currentState: "idle" | "run" = "idle";
+  let currentDirection: "down" | "up" | "right" | "left" = "down";
+  let lastDirection: "down" | "up" | "right" | "left" = "down";
+
   const player = k.add([
-    k.sprite("player"),
+    k.sprite("vu-idle"),
     k.pos(x, y),
     k.anchor("center"),
-    k.area(),
+    k.area({ scale: k.vec2(0.8, 0.8) }),
     k.body(),
-    k.color(79, 195, 247),
     k.opacity(1),
     k.rotate(0),
     k.z(10),
@@ -511,6 +515,25 @@ function createPlayer(
       dir: k.vec2(0, 0)
     }
   ]);
+
+  try { player.play("idle-down"); } catch {}
+
+  // Mask overlay
+  const maskOverlay = k.add([
+    k.sprite("mask-ghost"),
+    k.pos(x, y - 4),
+    k.anchor("center"),
+    k.scale(0.35),
+    k.opacity(0),
+    k.z(11),
+    "mask-overlay"
+  ]);
+
+  function getDirection(dir: { x: number; y: number }): "down" | "up" | "right" | "left" {
+    if (Math.abs(dir.x) > Math.abs(dir.y)) return dir.x > 0 ? "right" : "left";
+    else if (dir.y !== 0) return dir.y > 0 ? "down" : "up";
+    return lastDirection;
+  }
 
   player.onUpdate(() => {
     if (gameState.isPaused() || gameState.isDialogueActive()) return;
@@ -522,9 +545,33 @@ function createPlayer(
     if (k.isKeyDown("up") || k.isKeyDown("w")) dir.y -= 1;
     if (k.isKeyDown("down") || k.isKeyDown("s")) dir.y += 1;
 
-    if (dir.len() > 0) {
+    const isMoving = dir.len() > 0;
+    const newState = isMoving ? "run" : "idle";
+
+    if (isMoving) {
+      currentDirection = getDirection(dir);
+      lastDirection = currentDirection;
       player.dir = dir.unit();
       player.move(player.dir.scale(player.speed));
+    }
+
+    if (newState !== currentState) {
+      currentState = newState;
+      const spriteName = newState === "run" ? "vu-run" : "vu-idle";
+      const animName = `${newState === "run" ? "run" : "idle"}-${currentDirection}`;
+      try { player.use(k.sprite(spriteName)); player.play(animName); } catch {}
+    }
+
+    // Mask overlay update
+    maskOverlay.pos.x = player.pos.x;
+    maskOverlay.pos.y = player.pos.y - 4 + (currentState === "run" ? Math.sin(k.time() * 15) * 0.5 : 0);
+    const currentMask = gameState.getPlayerState().currentMask;
+    if (currentMask) {
+      maskOverlay.opacity = 0.9;
+      const maskSprites: Record<string, string> = { shield: "mask-shield", ghost: "mask-ghost", frozen: "mask-frozen", silence: "mask-silence" };
+      try { maskOverlay.use(k.sprite(maskSprites[currentMask.id] || "mask-ghost")); maskOverlay.scale = k.vec2(0.35, 0.35); } catch {}
+    } else {
+      maskOverlay.opacity = 0;
     }
   });
 

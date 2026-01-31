@@ -275,13 +275,17 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_1_MAP): void {
 
 // Create player entity
 function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManager): GameObj<any> {
+  // Player state machine
+  let currentState: "idle" | "run" = "idle";
+  let currentDirection: "down" | "up" | "right" | "left" = "down";
+  let lastDirection: "down" | "up" | "right" | "left" = "down";
+
   const player = k.add([
-    k.sprite("player"),
+    k.sprite("vu-idle"),
     k.pos(x, y),
     k.anchor("center"),
-    k.area(),
+    k.area({ scale: k.vec2(0.8, 0.8) }),
     k.body(),
-    k.color(79, 195, 247),
     k.opacity(1),
     k.z(10),
     "player",
@@ -290,6 +294,30 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
       dir: k.vec2(0, 0)
     }
   ]);
+
+  // Try to play initial animation
+  try { player.play("idle-down"); } catch {}
+
+  // Mask overlay (Paper Doll system)
+  const maskOverlay = k.add([
+    k.sprite("mask-shield"),
+    k.pos(x, y - 4),
+    k.anchor("center"),
+    k.scale(0.35),
+    k.opacity(0),
+    k.z(11),
+    "mask-overlay"
+  ]);
+
+  // Get direction from input
+  function getDirection(dir: { x: number; y: number }): "down" | "up" | "right" | "left" {
+    if (Math.abs(dir.x) > Math.abs(dir.y)) {
+      return dir.x > 0 ? "right" : "left";
+    } else if (dir.y !== 0) {
+      return dir.y > 0 ? "down" : "up";
+    }
+    return lastDirection;
+  }
 
   // Movement controls
   player.onUpdate(() => {
@@ -301,12 +329,40 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     if (k.isKeyDown("up") || k.isKeyDown("w")) dir.y -= 1;
     if (k.isKeyDown("down") || k.isKeyDown("s")) dir.y += 1;
 
-    if (dir.len() > 0) {
+    const isMoving = dir.len() > 0;
+    const newState = isMoving ? "run" : "idle";
+
+    if (isMoving) {
+      currentDirection = getDirection(dir);
+      lastDirection = currentDirection;
       player.dir = dir.unit();
       player.move(player.dir.scale(player.speed));
     }
 
-    // Update visual based on state
+    // State transition - update animation
+    if (newState !== currentState || currentDirection !== lastDirection) {
+      currentState = newState;
+      const spriteName = newState === "run" ? "vu-run" : "vu-idle";
+      const animName = `${newState === "run" ? "run" : "idle"}-${currentDirection}`;
+      try {
+        player.use(k.sprite(spriteName));
+        player.play(animName);
+      } catch {}
+    }
+
+    // Update mask overlay
+    maskOverlay.pos.x = player.pos.x;
+    maskOverlay.pos.y = player.pos.y - 4 + (currentState === "run" ? Math.sin(k.time() * 15) * 0.5 : 0);
+    const currentMask = gameState.getPlayerState().currentMask;
+    if (currentMask) {
+      maskOverlay.opacity = 0.9;
+      const maskSprites: Record<string, string> = { shield: "mask-shield", ghost: "mask-ghost", frozen: "mask-frozen", silence: "mask-silence" };
+      try { maskOverlay.use(k.sprite(maskSprites[currentMask.id] || "mask-shield")); maskOverlay.scale = k.vec2(0.35, 0.35); } catch {}
+    } else {
+      maskOverlay.opacity = 0;
+    }
+
+    // Visual state effects
     if (gameState.isPlayerInvisible()) {
       player.opacity = 0.3;
     } else {

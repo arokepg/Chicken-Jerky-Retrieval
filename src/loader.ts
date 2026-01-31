@@ -8,6 +8,11 @@ import maskGhostImg from './assets/ui/masks/mask_ghost.svg';
 import maskFreezeImg from './assets/ui/masks/mask_freeze.svg';
 import maskShieldImg from './assets/ui/masks/mask_shield.svg';
 
+// Import Vu character sprites
+import vuIdleAnim from './assets/sprites/characters/vu/Vu_idle_anim_16x16.png';
+import vuRun from './assets/sprites/characters/vu/Vu_run_16x16.png';
+import vuIdle from './assets/sprites/characters/vu/Vu_idle_16x16.png';
+
 // Tile size for all entities
 export const TILE_SIZE = 16;
 
@@ -70,7 +75,35 @@ export function loadAssets(k: KaboomCtx): void {
   k.loadSprite("intro_room", createIntroSlide(640, 360, "#2d132c", "#801336", "VŨ'S HIDEOUT"));
   k.loadSprite("intro_corp", createIntroSlide(640, 360, "#0f0f23", "#1a1a40", "BAGASSE CORP"));
 
-  // ============= PLAYER =============
+  // ============= PLAYER - Vu Character Sprites =============
+  // Idle animation (standing still) - 4 directional rows or simple loop
+  k.loadSprite("vu-idle", vuIdleAnim, {
+    sliceX: 4,  // 4 frames horizontal
+    sliceY: 4,  // 4 directions (Down, Up, Right, Left)
+    anims: {
+      "idle-down":  { from: 0, to: 3, loop: true, speed: 6 },
+      "idle-up":    { from: 4, to: 7, loop: true, speed: 6 },
+      "idle-right": { from: 8, to: 11, loop: true, speed: 6 },
+      "idle-left":  { from: 12, to: 15, loop: true, speed: 6 }
+    }
+  });
+  
+  // Run animation (moving) - 4 directional rows
+  k.loadSprite("vu-run", vuRun, {
+    sliceX: 6,  // 6 frames horizontal
+    sliceY: 4,  // 4 directions (Down, Up, Right, Left)
+    anims: {
+      "run-down":  { from: 0, to: 5, loop: true, speed: 10 },
+      "run-up":    { from: 6, to: 11, loop: true, speed: 10 },
+      "run-right": { from: 12, to: 17, loop: true, speed: 10 },
+      "run-left":  { from: 18, to: 23, loop: true, speed: 10 }
+    }
+  });
+  
+  // Static idle for fallback
+  k.loadSprite("vu-static", vuIdle);
+  
+  // Legacy player placeholder (keep for compatibility)
   k.loadSprite("player", createPlaceholderSprite(16, 16, "#4FC3F7", "#29B6F6"));
 
   // ============= ENEMIES =============

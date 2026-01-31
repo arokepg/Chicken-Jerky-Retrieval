@@ -64,10 +64,10 @@ Project: Chicken Jerky Retrieval (Masked)
 *Format: MP3 or WAV.*
 
 ### 🎵 Music (BGM)
-- [ ] `bgm_stealth.mp3` - Quiet, sneaky music (Level 1).
-- [ ] `bgm_chase.mp3` - Fast-paced, chaotic music (Level 2 & 4).
-- [ ] `bgm_boss.mp3` - Epic dramatic music (Level 5).
-- [ ] `bgm_emotional.mp3` - Piano/Soft music (Ending).
+    - [ ] `bgm_stealth.mp3` - Quiet, sneaky music (Level 1).
+    - [ ] `bgm_chase.mp3` - Fast-paced, chaotic music (Level 2 & 4).
+    - [ ] `bgm_boss.mp3` - Epic dramatic music (Level 5).
+    - [ ] `bgm_emotional.mp3` - Piano/Soft music (Ending).
 
 ### 🔊 Sound Effects (SFX)
 - [ ] `sfx_alert.mp3` - Spotted by guard.
