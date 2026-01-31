@@ -395,17 +395,17 @@ export function level2Scene(k: KaboomCtx): void {
     });
   }
 
-  // ============= PHASE TIMERS =============
+  // ============= PHASE TIMERS (BUFFED DIFFICULTY) =============
   let phase1Timer = 0;
   let phase2Timer = 0;
   let phase3Timer = 0;
   let chaosLaserTimer = 0;
   let chaosBubbleTimer = 0;
-  const PHASE1_SPAWN_INTERVAL = 2.0; // Spawn laser every 2s
-  const PHASE2_SPAWN_INTERVAL = 1.2; // Spawn bubble every 1.2s
-  const PHASE3_SPAWN_INTERVAL = 1.8; // Spawn crosshair every 1.8s
-  const CHAOS_LASER_INTERVAL = 2.5; // Chaos mode laser interval
-  const CHAOS_BUBBLE_INTERVAL = 1.5; // Chaos mode bubble interval
+  const PHASE1_SPAWN_INTERVAL = 0.5; // Spawn laser every 0.5s (was 2s)
+  const PHASE2_SPAWN_INTERVAL = 0.5; // Spawn bubble every 0.5s (was 1.2s)
+  const PHASE3_SPAWN_INTERVAL = 0.6; // Spawn crosshair every 0.6s (was 1.8s)
+  const CHAOS_LASER_INTERVAL = 0.8; // Chaos mode laser interval
+  const CHAOS_BUBBLE_INTERVAL = 0.6; // Chaos mode bubble interval
 
   // ============= OPEN ELEVATOR =============
   function openElevator(): void {
@@ -503,56 +503,65 @@ export function level2Scene(k: KaboomCtx): void {
     // Skip spawning if elevator is open
     if (elevatorOpen) return;
 
-    // ============= PHASE-BASED SPAWNING =============
+    // ============= PHASE-BASED SPAWNING (BUFFED: Multiple projectiles) =============
     if (timeElapsed < 5) {
       // PHASE 1: Laser Lines (0-5s)
       if (phaseText.exists()) {
-        phaseText.text = "PHASE 1: LASER LINES";
+        phaseText.text = "PHASE 1: LASER STORM";
         phaseText.color = k.rgb(255, 150, 150);
       }
       
       phase1Timer += dt;
       if (phase1Timer >= PHASE1_SPAWN_INTERVAL) {
         phase1Timer = 0;
+        // Spawn 2 lasers at once
+        spawnLaserLine();
         spawnLaserLine();
       }
     } else if (timeElapsed < 10) {
       // PHASE 2: Debt Bubbles (5-10s)
       if (phaseText.exists()) {
-        phaseText.text = "PHASE 2: DEBT BUBBLES";
+        phaseText.text = "PHASE 2: BUBBLE HELL";
         phaseText.color = k.rgb(255, 200, 100);
       }
       
       phase2Timer += dt;
       if (phase2Timer >= PHASE2_SPAWN_INTERVAL) {
         phase2Timer = 0;
+        // Spawn 2-3 bubbles at once
         spawnDebtBubble();
+        spawnDebtBubble();
+        if (k.rand() > 0.5) spawnDebtBubble();
       }
     } else {
-      // PHASE 3: CHAOS MODE - Targeted Shots + Laser Lines + Bubbles (10-15s)
+      // PHASE 3: CHAOS MODE - ALL AT ONCE (10-15s)
       if (phaseText.exists()) {
-        phaseText.text = "PHASE 3: CHAOS MODE!";
+        phaseText.text = "PHASE 3: TOTAL CHAOS!";
         phaseText.color = k.rgb(255, 50, 50);
       }
       
-      // Crosshairs (main attack)
+      // Crosshairs (main attack) - spawn 2
       phase3Timer += dt;
       if (phase3Timer >= PHASE3_SPAWN_INTERVAL) {
         phase3Timer = 0;
         spawnCrosshair();
+        spawnCrosshair();
       }
       
-      // Laser Lines (simultaneous chaos)
+      // Laser Lines (simultaneous chaos) - spawn 2
       chaosLaserTimer += dt;
       if (chaosLaserTimer >= CHAOS_LASER_INTERVAL) {
         chaosLaserTimer = 0;
         spawnLaserLine();
+        spawnLaserLine();
       }
       
-      // Debt Bubbles (simultaneous chaos)
+      // Debt Bubbles (simultaneous chaos) - spawn 3
       chaosBubbleTimer += dt;
       if (chaosBubbleTimer >= CHAOS_BUBBLE_INTERVAL) {
         chaosBubbleTimer = 0;
+        spawnDebtBubble();
+        spawnDebtBubble();
         spawnDebtBubble();
       }
     }

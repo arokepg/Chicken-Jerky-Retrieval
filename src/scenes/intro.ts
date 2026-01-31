@@ -278,6 +278,6 @@ function fadeToLevel1(k: KaboomCtx): void {
   k.tween(0, 1, 0.8, (val) => {
     fade.opacity = val;
   }, k.easings.easeInQuad).onEnd(() => {
-    k.go("level1");
+    k.go("walk_in");
   });
 }

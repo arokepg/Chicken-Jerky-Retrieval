@@ -1,5 +1,6 @@
 export { mainMenuScene, gameOverScene, victoryScene } from "./menu.ts";
 export { introScene } from "./intro.ts";
+export { walkInScene } from "./walk_in.ts";
 export { outroScene } from "./outro.ts";
 export { gateOpeningScene } from "./gate_opening.ts";
 export { level1Scene } from "./level1.ts";;

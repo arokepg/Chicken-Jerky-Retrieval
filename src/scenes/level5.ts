@@ -1,5 +1,5 @@
-// Level 5: The CEO's Office - BOSS FIGHT (60s Survival)
-// Complete recode with proper State Machine
+// Level 5: The CEO's Office - BOSS FIGHT (90s Survival)
+// 3-Phase Meme Boss: "Alo Vu" Copypasta -> Jerky Rain -> Foggy Finale
 import { KaboomCtx, GameObj } from "kaboom";
 import { MaskManager } from "../mechanics/MaskManager.ts";
 import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
@@ -12,21 +12,33 @@ import { LEVEL_5_MAP, getPlayerSpawn } from "../maps.ts";
 import { TILE_SIZE } from "../loader.ts";
 
 // ============= BOSS FIGHT CONSTANTS =============
-const FIGHT_DURATION = 60; // 60 seconds to win
-const BOSS_MOVE_INTERVAL = 3; // Boss floats to new position every 3s
-const MONEYBAG_SPEED = 150;
-const SHOCKWAVE_SPEED = 120;
+const FIGHT_DURATION = 90; // 90 seconds to survive
+const PHASE_1_END = 30;    // 0-30s: Alo Vu Copypasta
+const PHASE_2_END = 60;    // 30-60s: Jerky Rain
+// 60-90s: Foggy Finale (BOTH attacks + fog)
+
+const BOSS_MOVE_INTERVAL = 3;
+
+// Phase 1: Text projectile copypasta lines
+const ALO_VU_COPYPASTA = [
+  "Alo, em có phải Vũ không?",
+  "Ui Vũ ơi… em đừng có chối",
+  "Anh có cả ở đây rồi!",
+  "Vũ có cần anh đọc cho nghe không?",
+  "Vũ ơi… em còn trẻ quá",
+  "Hơn con anh có mấy tuổi à",
+  "Sao Vũ lại làm thế...",
+  "Còn cả tương lai đằng trước...",
+];
 
 // Boss State Machine
-type BossState = "intro" | "phase1" | "phase2" | "win";
+type BossState = "intro" | "phase1" | "phase2" | "phase3" | "win";
 
 export function level5Scene(k: KaboomCtx): void {
   const map = LEVEL_5_MAP;
   
-  // Setup pause system
   setupPauseSystem(k);
   
-  // Initialize camera
   const camera = new CameraController(k, {
     zoom: 2.2,
     lerpSpeed: 0.1,
@@ -34,35 +46,28 @@ export function level5Scene(k: KaboomCtx): void {
   });
   camera.setBounds(0, 0, map.width, map.height);
 
-  // Initialize mask manager
   const maskManager = new MaskManager(k);
-  
-  // Prepare player state
   gameState.prepareForLevel(5);
-
-  // Build level
   buildLevel(k, map);
 
-  // Get spawn positions
   const playerSpawn = getPlayerSpawn(map);
   const bossSpawnPos = { x: map.width / 2, y: TILE_SIZE * 5 };
 
-  // Create player
   const player = createPlayer(k, playerSpawn.x, playerSpawn.y, maskManager);
   camera.snapTo(k.vec2(playerSpawn.x, playerSpawn.y));
 
-  // ============= BOSS STATE MACHINE =============
+  // ============= STATE MACHINE =============
   let bossState: BossState = "intro";
   let timeRemaining = FIGHT_DURATION;
   let bossMoveTimer = 0;
-  let phase1Timer = 0;
-  let phase2Timer = 0;
-  let shockwaveTimer = 0;
-
-  // Attack intervals
-  const PHASE1_ATTACK_RATE = 1.5; // Money bags every 1.5s
-  const PHASE2_ATTACK_RATE = 1.2; // Money bags every 1.2s
-  const SHOCKWAVE_RATE = 4; // Shockwave every 4s
+  
+  // Phase timers
+  let textTimer = 0;
+  let jerkyTimer = 0;
+  let currentTextIndex = 0;
+  
+  const TEXT_FIRE_RATE = 1.8;
+  const JERKY_SPAWN_RATE = 0.15; // Very fast for bullet hell
 
   // Create Boss
   const boss = k.add([
@@ -79,7 +84,6 @@ export function level5Scene(k: KaboomCtx): void {
   // ============= UI SETUP =============
   const ui = createGameUI(k);
   
-  // Timer bar (visual HP bar showing time remaining)
   const TIMER_BAR_WIDTH = 240;
   const TIMER_BAR_HEIGHT = 16;
   
@@ -141,7 +145,6 @@ export function level5Scene(k: KaboomCtx): void {
 
   masks.forEach((mask, i) => {
     const xPos = (i - 1.5) * MASK_SPACING;
-    
     maskUIContainer.add([
       k.text(`[${mask.key}]`, { size: 10 }),
       k.pos(xPos, -25),
@@ -149,7 +152,6 @@ export function level5Scene(k: KaboomCtx): void {
       k.color(200, 200, 200),
       k.z(401)
     ]);
-
     const icon = maskUIContainer.add([
       k.sprite(mask.sprite),
       k.pos(xPos, 0),
@@ -162,7 +164,7 @@ export function level5Scene(k: KaboomCtx): void {
     maskIcons.push(icon);
   });
 
-  // Red background for Phase 2
+  // Red background for intensity
   const redBackground = k.add([
     k.rect(k.width(), k.height()),
     k.pos(0, 0),
@@ -172,127 +174,135 @@ export function level5Scene(k: KaboomCtx): void {
     k.fixed()
   ]);
 
-  // ============= BOSS MOVEMENT (Tween to random spot) =============
+  // ============= FOG LAYER (Phase 3) =============
+  let fogLayer: GameObj<any> | null = null;
+  let fogMoveTimer = 0;
+  let fogTargetX = k.width() / 2;
+  let fogTargetY = k.height() / 2;
+
+  function createFog(): void {
+    if (fogLayer) return;
+    
+    fogLayer = k.add([
+      k.circle(300), // Large cloud covering view
+      k.pos(k.width() / 2, k.height() / 2),
+      k.anchor("center"),
+      k.color(50, 50, 80),
+      k.opacity(0.75),
+      k.z(99), // Just below UI
+      k.fixed(),
+      "fog"
+    ]);
+  }
+
+  function updateFog(): void {
+    if (!fogLayer || !fogLayer.exists()) return;
+    
+    fogMoveTimer += k.dt();
+    if (fogMoveTimer >= 1.5) {
+      fogMoveTimer = 0;
+      fogTargetX = k.rand(100, k.width() - 100);
+      fogTargetY = k.rand(100, k.height() - 100);
+    }
+    
+    // Smooth movement
+    fogLayer.pos.x = k.lerp(fogLayer.pos.x, fogTargetX, k.dt() * 2);
+    fogLayer.pos.y = k.lerp(fogLayer.pos.y, fogTargetY, k.dt() * 2);
+    
+    // Pulsing opacity
+    fogLayer.opacity = 0.6 + Math.sin(k.time() * 2) * 0.15;
+  }
+
+  // ============= BOSS MOVEMENT =============
   function moveBossToRandomSpot(): void {
     const newX = k.rand(TILE_SIZE * 4, map.width - TILE_SIZE * 4);
     const newY = k.rand(TILE_SIZE * 3, map.height / 2);
     
+    const speed = bossState === "phase3" ? 0.4 : 0.8; // Faster in phase 3
+    
     k.tween(
       boss.pos,
       k.vec2(newX, newY),
-      0.8,
+      speed,
       (val) => { boss.pos = val; },
       k.easings.easeOutQuad
     );
   }
 
-  // ============= ATTACK 1: MONEY BAGS =============
-  function throwMoneyBag(): void {
+  // ============= ATTACK 1: TEXT PROJECTILES =============
+  function fireTextProjectile(): void {
     if (!boss.exists() || !player.exists()) return;
     
-    // Calculate direction towards player
+    const textStr = ALO_VU_COPYPASTA[currentTextIndex % ALO_VU_COPYPASTA.length];
+    currentTextIndex++;
+    
     const dir = player.pos.sub(boss.pos).unit();
     
-    // Create money bag projectile
-    const moneyBag = k.add([
-      k.rect(14, 12, { radius: 3 }),
-      k.pos(boss.pos.x, boss.pos.y + 15),
+    const textBullet = k.add([
+      k.text(textStr, { size: 7 }),
+      k.pos(boss.pos.x, boss.pos.y + 20),
       k.anchor("center"),
-      k.color(80, 180, 80), // Green money
-      k.outline(2, k.rgb(50, 120, 50)),
-      k.area({ scale: k.vec2(0.7, 0.7) }),
-      k.offscreen({ destroy: true, distance: 100 }), // Auto-cleanup
+      k.color(255, 100, 100),
+      k.area({ shape: new k.Rect(k.vec2(0), textStr.length * 4, 12) }),
+      k.offscreen({ destroy: true, distance: 100 }),
       k.z(8),
       "boss_projectile",
       {
         dir: dir,
-        speed: MONEYBAG_SPEED
+        speed: 100
       }
     ]);
 
-    // Dollar sign on bag
-    moneyBag.onDraw(() => {
-      k.drawText({
-        text: "$",
-        pos: k.vec2(0, 0),
-        size: 8,
-        anchor: "center",
-        color: k.rgb(255, 255, 255)
-      });
-    });
-
-    // IMPORTANT: Use onUpdate to ensure projectile moves
-    moneyBag.onUpdate(() => {
-      moneyBag.move(moneyBag.dir.scale(moneyBag.speed));
+    textBullet.onUpdate(() => {
+      textBullet.move(textBullet.dir.scale(textBullet.speed));
     });
   }
 
-  // ============= ATTACK 2: SHOCKWAVE (Ring of projectiles) =============
-  function createShockwave(): void {
-    if (!boss.exists()) return;
+  // ============= ATTACK 2: JERKY RAIN (Bullet Hell) =============
+  function spawnJerkyRain(): void {
+    // Spawn from random X at top
+    const x = k.rand(TILE_SIZE * 2, map.width - TILE_SIZE * 2);
+    const y = -10;
     
-    camera.shake(10, 0.3);
+    // Slight random angle for variety
+    const angle = k.rand(-0.3, 0.3);
+    const dir = k.vec2(angle, 1).unit();
     
-    // Visual stomp effect
-    const stomp = k.add([
-      k.circle(20),
-      k.pos(boss.pos),
+    const jerky = k.add([
+      k.rect(10, 8, { radius: 2 }),
+      k.pos(x, y),
       k.anchor("center"),
-      k.color(255, 100, 100),
-      k.opacity(0.8),
-      k.z(7)
+      k.color(139, 90, 43), // Brown jerky color
+      k.outline(1, k.rgb(100, 60, 30)),
+      k.area({ scale: k.vec2(0.6, 0.6) }),
+      k.offscreen({ destroy: true, distance: 50 }),
+      k.z(8),
+      "boss_projectile",
+      "jerky",
+      {
+        dir: dir,
+        speed: 180
+      }
     ]);
-    
-    k.tween(20, 80, 0.3, (r) => {
-      stomp.radius = r;
-      stomp.opacity = 0.8 - (r / 100);
-    }, k.easings.easeOutQuad).onEnd(() => {
-      stomp.destroy();
+
+    jerky.onUpdate(() => {
+      jerky.move(jerky.dir.scale(jerky.speed));
     });
-
-    // Create ring of projectiles (12 directions)
-    const projectileCount = 12;
-    for (let i = 0; i < projectileCount; i++) {
-      const angle = (i / projectileCount) * Math.PI * 2;
-      const dir = k.vec2(Math.cos(angle), Math.sin(angle));
-      
-      const shockProj = k.add([
-        k.circle(8),
-        k.pos(boss.pos.x, boss.pos.y),
-        k.anchor("center"),
-        k.color(255, 80, 80),
-        k.opacity(0.9),
-        k.area({ scale: k.vec2(0.6, 0.6) }),
-        k.offscreen({ destroy: true, distance: 100 }),
-        k.z(8),
-        "boss_projectile",
-        {
-          dir: dir,
-          speed: SHOCKWAVE_SPEED
-        }
-      ]);
-
-      // Use onUpdate for reliable movement
-      shockProj.onUpdate(() => {
-        shockProj.move(shockProj.dir.scale(shockProj.speed));
-      });
-    }
   }
 
   // ============= WIN CONDITION =============
   function triggerWin(): void {
     bossState = "win";
     
-    // Destroy all projectiles
     k.destroyAll("boss_projectile");
+    if (fogLayer && fogLayer.exists()) fogLayer.destroy();
     
-    // Boss tired animation
     boss.color = k.rgb(100, 100, 100);
     boss.opacity = 0.6;
     
-    // Add tired text above boss
+    // Boss tired animation
     k.add([
-      k.text("*pant* *pant*", { size: 8 }),
+      k.text("*thở hổn hển*", { size: 8 }),
       k.pos(boss.pos.x, boss.pos.y - 30),
       k.anchor("center"),
       k.color(200, 200, 200),
@@ -301,7 +311,6 @@ export function level5Scene(k: KaboomCtx): void {
     
     camera.shake(15, 0.5);
     
-    // Hide combat UI
     timerBackground.opacity = 0;
     timerBar.opacity = 0;
     timerText.opacity = 0;
@@ -309,7 +318,6 @@ export function level5Scene(k: KaboomCtx): void {
     phaseText.color = k.rgb(100, 255, 100);
     redBackground.opacity = 0;
 
-    // Transition to outro after short delay
     k.wait(2, () => {
       k.go("outro");
     });
@@ -324,7 +332,6 @@ export function level5Scene(k: KaboomCtx): void {
     maskManager.update(dt);
     camera.follow(player, k.mousePos());
 
-    // Skip combat during intro
     if (bossState === "intro") {
       updateGameUI(k, ui, maskManager, boss.pos, camera);
       return;
@@ -335,10 +342,9 @@ export function level5Scene(k: KaboomCtx): void {
     timerText.text = `Survive: ${Math.ceil(timeRemaining)}s`;
     timerBar.width = TIMER_BAR_WIDTH * (timeRemaining / FIGHT_DURATION);
 
-    // Timer color
-    if (timeRemaining < 10) {
+    if (timeRemaining < 15) {
       timerBar.color = k.rgb(255, 50, 50);
-    } else if (timeRemaining < 30) {
+    } else if (timeRemaining < 45) {
       timerBar.color = k.rgb(255, 150, 50);
     } else {
       timerBar.color = k.rgb(255, 215, 0);
@@ -360,39 +366,57 @@ export function level5Scene(k: KaboomCtx): void {
     // ============= PHASE MANAGEMENT =============
     const timeElapsed = FIGHT_DURATION - timeRemaining;
     
-    if (timeElapsed < 30) {
-      // PHASE 1: Money Bags (0-30s)
+    if (timeElapsed < PHASE_1_END) {
+      // PHASE 1: Alo Vu Copypasta (0-30s)
       bossState = "phase1";
-      phaseText.text = "Phase 1: Money Shower";
-      phaseText.color = k.rgb(100, 200, 100);
+      phaseText.text = "Phase 1: Alo Vũ Copypasta";
+      phaseText.color = k.rgb(255, 150, 150);
       boss.color = k.rgb(200, 50, 100);
       redBackground.opacity = 0;
       
-      phase1Timer += dt;
-      if (phase1Timer >= PHASE1_ATTACK_RATE && !gameState.isTimeFrozen()) {
-        phase1Timer = 0;
-        throwMoneyBag();
+      textTimer += dt;
+      if (textTimer >= TEXT_FIRE_RATE && !gameState.isTimeFrozen()) {
+        textTimer = 0;
+        fireTextProjectile();
       }
-    } else {
-      // PHASE 2: Money Bags + Shockwaves (30-60s)
+      
+    } else if (timeElapsed < PHASE_2_END) {
+      // PHASE 2: Jerky Rain (30-60s)
       bossState = "phase2";
-      phaseText.text = "Phase 2: FURY!";
-      phaseText.color = k.rgb(255, 100, 100);
-      boss.color = k.rgb(50, 50, 50); // Dark boss
-      redBackground.opacity = 0.15 + Math.sin(k.time() * 3) * 0.05;
+      phaseText.text = "Phase 2: Chicken Jerky Rain!";
+      phaseText.color = k.rgb(139, 90, 43);
+      boss.color = k.rgb(139, 90, 43);
+      redBackground.opacity = 0.1;
       
-      // Money bags (faster)
-      phase2Timer += dt;
-      if (phase2Timer >= PHASE2_ATTACK_RATE && !gameState.isTimeFrozen()) {
-        phase2Timer = 0;
-        throwMoneyBag();
+      jerkyTimer += dt;
+      if (jerkyTimer >= JERKY_SPAWN_RATE && !gameState.isTimeFrozen()) {
+        jerkyTimer = 0;
+        spawnJerkyRain();
       }
       
-      // Shockwaves
-      shockwaveTimer += dt;
-      if (shockwaveTimer >= SHOCKWAVE_RATE && !gameState.isTimeFrozen()) {
-        shockwaveTimer = 0;
-        createShockwave();
+    } else {
+      // PHASE 3: Foggy Finale (60-90s)
+      bossState = "phase3";
+      phaseText.text = "Phase 3: FOGGY FINALE!";
+      phaseText.color = k.rgb(255, 50, 50);
+      boss.color = k.rgb(50, 50, 50);
+      redBackground.opacity = 0.2 + Math.sin(k.time() * 3) * 0.1;
+      
+      // Create fog if not exists
+      if (!fogLayer) createFog();
+      updateFog();
+      
+      // BOTH attacks simultaneously
+      textTimer += dt;
+      if (textTimer >= TEXT_FIRE_RATE * 0.7 && !gameState.isTimeFrozen()) {
+        textTimer = 0;
+        fireTextProjectile();
+      }
+      
+      jerkyTimer += dt;
+      if (jerkyTimer >= JERKY_SPAWN_RATE * 1.2 && !gameState.isTimeFrozen()) {
+        jerkyTimer = 0;
+        spawnJerkyRain();
       }
     }
 
@@ -411,9 +435,7 @@ export function level5Scene(k: KaboomCtx): void {
 
   // ============= COLLISION HANDLERS =============
   
-  // Player hit by boss projectile
   player.onCollide("boss_projectile", (projectile: GameObj<any>) => {
-    // Shield deflects
     if (gameState.isPlayerShielding()) {
       projectile.destroy();
       camera.shake(5, 0.1);
@@ -437,12 +459,10 @@ export function level5Scene(k: KaboomCtx): void {
       return;
     }
     
-    // Brief invincibility
     gameState.setInvincible(true);
     k.wait(0.8, () => { gameState.setInvincible(false); });
   });
 
-  // Player touches boss
   player.onCollide("boss", () => {
     if (gameState.isPlayerEthereal()) return;
     if (gameState.isInvincible()) return;
@@ -451,7 +471,6 @@ export function level5Scene(k: KaboomCtx): void {
     gameState.damagePlayer(1);
     camera.shake(10, 0.3);
     
-    // Knockback
     const knockDir = player.pos.sub(boss.pos).unit();
     player.pos = player.pos.add(knockDir.scale(40));
     player.pos.x = k.clamp(player.pos.x, TILE_SIZE * 1.5, map.width - TILE_SIZE * 1.5);
@@ -465,11 +484,11 @@ export function level5Scene(k: KaboomCtx): void {
     }
   });
 
-  // ============= START FIGHT (After intro dialogue) =============
+  // Start fight after intro dialogue
   showDialogue(k, LEVEL_DIALOGUES[5].intro, () => {
     gameState.setDialogueActive(false);
     bossState = "phase1";
-    phaseText.text = "Phase 1: Money Shower";
+    phaseText.text = "Phase 1: Alo Vũ Copypasta";
   });
 }
 
@@ -478,7 +497,6 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
   const mapWidth = map.tiles[0].length * TILE_SIZE;
   const mapHeight = map.tiles.length * TILE_SIZE;
 
-  // Dark floor
   k.add([
     k.rect(mapWidth, mapHeight),
     k.pos(0, 0),
@@ -486,7 +504,6 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
     k.z(-2)
   ]);
 
-  // Red carpet
   const carpetWidth = TILE_SIZE * 8;
   k.add([
     k.rect(carpetWidth, mapHeight - TILE_SIZE * 4),
@@ -495,7 +512,6 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
     k.z(-1)
   ]);
 
-  // Carpet border
   k.add([
     k.rect(carpetWidth + 8, mapHeight - TILE_SIZE * 4 + 8),
     k.pos(mapWidth / 2 - carpetWidth / 2 - 4, TILE_SIZE * 2 - 4),
@@ -505,7 +521,6 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
     k.z(-1)
   ]);
 
-  // Build tiles
   for (let y = 0; y < map.tiles.length; y++) {
     for (let x = 0; x < map.tiles[y].length; x++) {
       const char = map.tiles[y][x];
@@ -531,7 +546,6 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
         ]);
       }
 
-      // Gold pillars
       if (char === 'O') {
         k.add([
           k.circle(18),
@@ -551,7 +565,6 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
     }
   }
 
-  // Money piles in corners
   const moneyPositions = [
     { x: TILE_SIZE * 3, y: TILE_SIZE * 3 },
     { x: mapWidth - TILE_SIZE * 3, y: TILE_SIZE * 3 },
@@ -581,7 +594,6 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
     }
   });
 
-  // Boss throne
   k.add([
     k.rect(TILE_SIZE * 6, TILE_SIZE * 2),
     k.pos(mapWidth / 2, TILE_SIZE * 3),
@@ -591,7 +603,6 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_5_MAP): void {
     k.z(1)
   ]);
   
-  // Boundaries
   const boundaryThickness = 16;
   [[mapWidth + 32, boundaryThickness, -16, -boundaryThickness],
    [mapWidth + 32, boundaryThickness, -16, mapHeight],
@@ -642,12 +653,10 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
       player.move(player.dir.scale(player.speed));
     }
 
-    // Clamp to map
     const margin = TILE_SIZE * 1.5;
     player.pos.x = k.clamp(player.pos.x, margin, LEVEL_5_MAP.width - margin);
     player.pos.y = k.clamp(player.pos.y, margin, LEVEL_5_MAP.height - margin);
 
-    // Visual states
     if (gameState.isPlayerShielding()) {
       player.color = k.rgb(255, 215, 0);
     } else if (gameState.isPlayerEthereal()) {
@@ -666,7 +675,6 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     maskManager.activateAbility(player);
   });
 
-  // Mask switching
   k.onKeyPress("1", () => maskManager.setMask(0));
   k.onKeyPress("2", () => maskManager.setMask(1));
   k.onKeyPress("3", () => maskManager.setMask(2));

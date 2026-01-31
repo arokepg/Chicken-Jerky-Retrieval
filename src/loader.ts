@@ -2,6 +2,12 @@
 // All game assets are loaded here - replace placeholders with actual pixel art later
 import { KaboomCtx } from "kaboom";
 
+// Import mask images from assets
+import maskSilenceImg from './assets/ui/masks/mask_silence.svg';
+import maskGhostImg from './assets/ui/masks/mask_ghost.svg';
+import maskFreezeImg from './assets/ui/masks/mask_freeze.svg';
+import maskShieldImg from './assets/ui/masks/mask_shield.svg';
+
 // Tile size for all entities
 export const TILE_SIZE = 16;
 
@@ -103,11 +109,11 @@ export function loadAssets(k: KaboomCtx): void {
   k.loadSprite("salary-projectile", createPlaceholderSprite(12, 8, "#4CAF50", "#2E7D32"));
   k.loadSprite("ban-hammer", createPlaceholderSprite(24, 32, "#B71C1C", "#880E4F"));
 
-  // ============= MASKS =============
-  k.loadSprite("mask-silence", createPlaceholderSprite(16, 16, "#9E9E9E", "#757575"));
-  k.loadSprite("mask-ghost", createPlaceholderSprite(16, 16, "#81D4FA", "#4FC3F7"));
-  k.loadSprite("mask-frozen", createPlaceholderSprite(16, 16, "#B3E5FC", "#81D4FA"));
-  k.loadSprite("mask-shield", createPlaceholderSprite(16, 16, "#FFCC80", "#FFB74D"));
+  // ============= MASKS (Loaded from actual assets) =============
+  k.loadSprite("mask-silence", maskSilenceImg);
+  k.loadSprite("mask-ghost", maskGhostImg);
+  k.loadSprite("mask-frozen", maskFreezeImg);
+  k.loadSprite("mask-shield", maskShieldImg);
 
   // ============= UI =============
   k.loadSprite("heart", createPlaceholderSprite(12, 12, "#EF5350", "#C62828"));

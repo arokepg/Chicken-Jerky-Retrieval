@@ -7,6 +7,7 @@ import {
   gameOverScene,
   victoryScene,
   introScene,
+  walkInScene,
   outroScene,
   gateOpeningScene,
   level1Scene,
@@ -104,6 +105,7 @@ setKaboomContext(k);
 // Register all scenes
 k.scene("menu", () => mainMenuScene(k));
 k.scene("intro", () => introScene(k));
+k.scene("walk_in", () => walkInScene(k));
 k.scene("level1", () => level1Scene(k));
 k.scene("level2", () => level2Scene(k));
 k.scene("level3", () => level3Scene(k));
