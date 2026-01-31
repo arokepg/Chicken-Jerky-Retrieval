@@ -518,10 +518,10 @@ function createPlayer(
 
   try { player.play("idle-down"); } catch {}
 
-  // Mask overlay
+  // Mask overlay (Paper Doll system - Face-Only Attachment)
   const maskOverlay = k.add([
     k.sprite("mask-ghost"),
-    k.pos(x, y - 4),
+    k.pos(x, y - 5),
     k.anchor("center"),
     k.scale(0.35),
     k.opacity(0),
@@ -545,7 +545,7 @@ function createPlayer(
     if (k.isKeyDown("up") || k.isKeyDown("w")) dir.y -= 1;
     if (k.isKeyDown("down") || k.isKeyDown("s")) dir.y += 1;
 
-    const isMoving = dir.len() > 0;
+    const isMoving = dir.len() > 0.1;
     const newState = isMoving ? "run" : "idle";
 
     if (isMoving) {
@@ -562,9 +562,9 @@ function createPlayer(
       try { player.use(k.sprite(spriteName)); player.play(animName); } catch {}
     }
 
-    // Mask overlay update
+    // Mask overlay update (follows player head position)
     maskOverlay.pos.x = player.pos.x;
-    maskOverlay.pos.y = player.pos.y - 4 + (currentState === "run" ? Math.sin(k.time() * 15) * 0.5 : 0);
+    maskOverlay.pos.y = player.pos.y - 5 + (currentState === "run" ? Math.sin(k.time() * 15) * 0.5 : 0);
     const currentMask = gameState.getPlayerState().currentMask;
     if (currentMask) {
       maskOverlay.opacity = 0.9;

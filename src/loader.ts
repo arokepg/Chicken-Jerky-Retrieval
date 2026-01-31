@@ -76,27 +76,29 @@ export function loadAssets(k: KaboomCtx): void {
   k.loadSprite("intro_corp", createIntroSlide(640, 360, "#0f0f23", "#1a1a40", "BAGASSE CORP"));
 
   // ============= PLAYER - Vu Character Sprites =============
-  // Idle animation (standing still) - 4 directional rows or simple loop
+  // Idle animation (standing still) - 4 directional rows
+  // Direction mapping: Row 0=Left, Row 1=Up(Back), Row 2=Right, Row 3=Down(Front)
   k.loadSprite("vu-idle", vuIdleAnim, {
     sliceX: 4,  // 4 frames horizontal
-    sliceY: 4,  // 4 directions (Down, Up, Right, Left)
+    sliceY: 4,  // 4 directions
     anims: {
-      "idle-down":  { from: 0, to: 3, loop: true, speed: 6 },
-      "idle-up":    { from: 4, to: 7, loop: true, speed: 6 },
-      "idle-right": { from: 8, to: 11, loop: true, speed: 6 },
-      "idle-left":  { from: 12, to: 15, loop: true, speed: 6 }
+      "idle-left":  { from: 0, to: 3, loop: true, speed: 5 },   // Row 0 - Side_Left
+      "idle-up":    { from: 4, to: 7, loop: true, speed: 5 },   // Row 1 - Back
+      "idle-right": { from: 8, to: 11, loop: true, speed: 5 },  // Row 2 - Side_Right
+      "idle-down":  { from: 12, to: 15, loop: true, speed: 5 }  // Row 3 - Front
     }
   });
   
   // Run animation (moving) - 4 directional rows
+  // Direction mapping: Row 0=Left, Row 1=Up(Back), Row 2=Right, Row 3=Down(Front)
   k.loadSprite("vu-run", vuRun, {
-    sliceX: 6,  // 6 frames horizontal
-    sliceY: 4,  // 4 directions (Down, Up, Right, Left)
+    sliceX: 4,  // 4 frames horizontal per row
+    sliceY: 4,  // 4 directions
     anims: {
-      "run-down":  { from: 0, to: 5, loop: true, speed: 10 },
-      "run-up":    { from: 6, to: 11, loop: true, speed: 10 },
-      "run-right": { from: 12, to: 17, loop: true, speed: 10 },
-      "run-left":  { from: 18, to: 23, loop: true, speed: 10 }
+      "run-left":  { from: 0, to: 3, loop: true, speed: 12 },   // Row 0 - Side_Left
+      "run-up":    { from: 4, to: 7, loop: true, speed: 12 },   // Row 1 - Back
+      "run-right": { from: 8, to: 11, loop: true, speed: 12 },  // Row 2 - Side_Right
+      "run-down":  { from: 12, to: 15, loop: true, speed: 12 }  // Row 3 - Front
     }
   });
   

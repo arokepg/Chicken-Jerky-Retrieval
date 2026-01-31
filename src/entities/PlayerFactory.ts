@@ -17,7 +17,7 @@ const MASK_SPRITES: Record<string, string> = {
 };
 
 // Mask overlay offset (position on Vu's face)
-const MASK_OFFSET = { x: 0, y: -4 };
+const MASK_OFFSET = { x: 0, y: -5 };
 const MASK_OVERLAY_SCALE = 0.35; // Scale mask to fit on face
 
 export interface PlayerConfig {
@@ -209,7 +209,7 @@ export function createPlayerWithMask(
     if (k.isKeyDown("down") || k.isKeyDown("s")) inputDir.y += 1;
 
     // State machine transitions
-    const isMoving = inputDir.len() > 0;
+    const isMoving = inputDir.len() > 0.1;
     const newState: PlayerState = isMoving ? "run" : "idle";
     
     if (isMoving) {
