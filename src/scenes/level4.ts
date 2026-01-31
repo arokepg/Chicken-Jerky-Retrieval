@@ -232,6 +232,10 @@ export function level4Scene(k: KaboomCtx): void {
   maskManager.initPlayerMask(player);
   camera.snapTo(k.vec2(playerSpawn.x, playerSpawn.y));
 
+  // ============= SAFE TUTORIAL START =============
+  // Defenders don't activate until tutorial UI is dismissed
+  let challengeStarted = false;
+  
   // ============= COMEDY DEFENSE AI (Defenders) =============
   const defenders: GameObj<any>[] = [];
   
@@ -306,6 +310,12 @@ export function level4Scene(k: KaboomCtx): void {
 
   // Defender AI Update
   function updateDefender(def: GameObj<any>, dt: number): void {
+    // Safe Tutorial Start: Don't move until challenge begins
+    if (!challengeStarted) {
+      def.color = k.rgb(100, 100, 100); // Inactive grey
+      return;
+    }
+    
     if (gameState.isTimeFrozen()) {
       def.color = k.rgb(100, 60, 60); // Frozen color
       return;
@@ -548,6 +558,20 @@ export function level4Scene(k: KaboomCtx): void {
     gameState.setDialogueActive(false);
     // Show mask description after dialogue
     showMaskDescription(k, 4);
+    
+    // Safe Tutorial Start: Begin challenge AFTER tutorial UI fades (3.5s total)
+    k.wait(3.5, () => {
+      challengeStarted = true;
+      
+      // Flash defenders red to show they're now active
+      defenders.forEach(def => {
+        if (def.exists()) {
+          k.tween(k.rgb(100, 100, 100), k.rgb(200, 40, 40), 0.3, (c) => {
+            def.color = c;
+          }, k.easings.easeOutQuad);
+        }
+      });
+    });
   });
 }
 

@@ -108,6 +108,7 @@ export function loadAssets(k: KaboomCtx): void {
   k.loadSprite("money-projectile", createPlaceholderSprite(10, 8, "#4CAF50", "#388E3C"));
   k.loadSprite("salary-projectile", createPlaceholderSprite(12, 8, "#4CAF50", "#2E7D32"));
   k.loadSprite("ban-hammer", createPlaceholderSprite(24, 32, "#B71C1C", "#880E4F"));
+  k.loadSprite("jerky", createPlaceholderSprite(16, 16, "#FFD700", "#FFA500")); // Golden Chicken Jerky Box
 
   // ============= MASKS (Loaded from actual assets) =============
   k.loadSprite("mask-silence", maskSilenceImg);
