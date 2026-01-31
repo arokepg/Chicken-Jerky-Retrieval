@@ -84,12 +84,12 @@ export function loadAssets(k: KaboomCtx): void {
     }
   });
   
-  // Run animation - simple looping sprite
+  // Run animation - 24 frame horizontal strip (shows 1/24th at a time)
   k.loadSprite("vu-run", vuRun, {
-    sliceX: 4,
+    sliceX: 24,
     sliceY: 1,
     anims: {
-      "run": { from: 0, to: 3, loop: true, speed: 10 }
+      "run": { from: 0, to: 23, loop: true, speed: 10 }
     }
   });
   
