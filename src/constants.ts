@@ -133,13 +133,15 @@ export const LEVEL_DIALOGUES: Record<number, { intro: DialogueLine[], outro?: Di
   },
   5: {
     intro: [
-      { speaker: "The Face Stealer", text: "So you've collected three masks... But I possess ALL FOUR.", color: "#D32F2F" },
-      { speaker: "The Face Stealer", text: "This final mask... the Silence Mask... you must EARN it!", color: "#212121" },
-      { speaker: "Vu", text: "Mom is waiting... I'll take ALL the masks from you!", color: "#4FC3F7" }
+      { speaker: "The Face Stealer", text: "You dare challenge me?! I am INVINCIBLE!", color: "#D32F2F" },
+      { speaker: "The Face Stealer", text: "Survive my onslaught for 90 seconds... IF YOU CAN!", color: "#212121" },
+      { speaker: "Vu", text: "I have all the masks I need. Mom is waiting!", color: "#4FC3F7" },
+      { speaker: "System", text: "SURVIVAL MODE: Endure 90 seconds! Use masks to counter each phase!", color: "#FFCA28" }
     ],
     outro: [
-      { speaker: "The Face Stealer", text: "Impossible... You mastered every form...", color: "#D32F2F" },
-      { speaker: "System", text: "Silence Mask acquired! All masks collected!", color: "#FFCA28" }
+      { speaker: "The Face Stealer", text: "SYSTEM... OVERLOAD... IMPOSSIBLE...!", color: "#D32F2F" },
+      { speaker: "Vu", text: "It's over! The Silence Mask is mine!", color: "#4FC3F7" },
+      { speaker: "System", text: "Silence Mask acquired! All masks collected! Congratulations!", color: "#FFCA28" }
     ]
   }
 };
