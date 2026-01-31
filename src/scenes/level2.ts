@@ -596,7 +596,7 @@ export function level2Scene(k: KaboomCtx): void {
     if (!elevatorOpen || levelComplete) return;
     
     levelComplete = true;
-    gameState.addCollectedMask(MASKS.shield); // Floor 2: Shield Mask
+    // Mask already acquired at floor entry
     
     // Clear everything
     k.destroyAll("hazard");
@@ -614,11 +614,36 @@ export function level2Scene(k: KaboomCtx): void {
     });
   });
 
-  // Show intro dialogue
+  // Show intro dialogue - Grant mask at floor ENTRY
   showDialogue(k, LEVEL_DIALOGUES[2].intro, () => {
+    // Grant Shield Mask on entry to Floor 2
+    gameState.addCollectedMask(MASKS.shield);
+    gameState.setCurrentMask(MASKS.shield);
+    showAcquiredNotification(k, "SHIELD MASK");
+    
     gameState.setDialogueActive(false);
     // Show mask description after dialogue
     showMaskDescription(k, 2);
+  });
+}
+
+// Show ACQUIRED notification
+function showAcquiredNotification(k: KaboomCtx, maskName: string): void {
+  const notification = k.add([
+    k.text(`✨ ACQUIRED: ${maskName} ✨`, { size: 16 }),
+    k.pos(k.width() / 2, k.height() * 0.25),
+    k.anchor("center"),
+    k.color(255, 215, 0), // Gold
+    k.opacity(0),
+    k.z(2000),
+    k.fixed()
+  ]);
+  
+  // Fade in, hold, fade out
+  k.tween(0, 1, 0.4, (val) => { notification.opacity = val; }, k.easings.easeOutQuad);
+  k.wait(2.5, () => {
+    k.tween(1, 0, 0.6, (val) => { notification.opacity = val; }, k.easings.easeInQuad)
+      .onEnd(() => notification.destroy());
   });
 }
 

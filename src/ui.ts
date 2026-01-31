@@ -356,11 +356,11 @@ export function showAbilityText(k: KaboomCtx, text: string): void {
 // ============= MASK DESCRIPTION DISPLAY (Level Start) =============
 // NEW PROGRESSION: Floor 1 = tutorial, Floor 2-5 = masks
 const MASK_DESCRIPTIONS: Record<number, string> = {
-  1: "Tutorial: Tìm đường đến thang máy. Tránh kẻ địch! (Chưa có mặt nạ)",
-  2: "Mặt Nạ Khiên: Giữ SPACE để hấp thụ đạn, thả để bắn Repel Blast!",
-  3: "Mặt Nạ Hồn Ma: Phase Shift - Lướt xuyên tường và kẻ địch!",
-  4: "Mặt Nạ Băng Giá: Flash Freeze - Đóng băng kẻ địch thành platform!",
-  5: "Boss Fight: Đổi mặt nạ đúng để counter boss! [1-4] để chọn."
+  1: "Tutorial: WASD to Move. Reach the elevator! No mask yet.",
+  2: "Shield Mask: Hold SPACE to absorb projectiles, release for Repel Blast!",
+  3: "Ghost Mask: Phase Shift - Dash through walls and enemies!",
+  4: "Freeze Mask: Flash Freeze - Freeze enemies into platforms!",
+  5: "Boss Fight: Switch masks to counter boss phases! [1-4] to select."
 };
 
 export function showMaskDescription(k: KaboomCtx, level: number): void {

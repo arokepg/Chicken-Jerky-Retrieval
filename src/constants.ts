@@ -87,8 +87,10 @@ export const MASKS: Record<string, MaskData> = {
 export const LEVEL_DIALOGUES: Record<number, { intro: DialogueLine[], outro?: DialogueLine[] }> = {
   1: {
     intro: [
+      { speaker: "Tutorial", text: "WASD to Move. Left Click to Attack.", color: "#FFCA28" },
+      { speaker: "Tutorial", text: "Dodge their attacks! You have no mask to protect you yet.", color: "#FFCA28" },
       { speaker: "Vu", text: "The lobby... I need to find the stairs to Floor 2.", color: "#4FC3F7" },
-      { speaker: "Radio", text: "Be careful Vu. This is just the beginning.", color: "#81C784" }
+      { speaker: "Radio", text: "The atmosphere gets heavier upstairs... You will need protection.", color: "#81C784" }
     ],
     outro: [
       { speaker: "Vu", text: "Made it to the elevator! Time for Floor 2.", color: "#4FC3F7" },

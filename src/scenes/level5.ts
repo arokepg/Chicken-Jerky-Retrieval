@@ -461,13 +461,34 @@ export function level5Scene(k: KaboomCtx): void {
     
     camera.shake(20, 1);
     
-    // Award Silence Mask
+    // Award Silence Mask (earned through boss defeat)
     gameState.addCollectedMask(MASKS.silence);
+    showAcquiredNotification(k, "SILENCE MASK");
     
     k.wait(2, () => {
       showDialogue(k, LEVEL_DIALOGUES[5].outro!, () => {
         k.go("outro");
       });
+    });
+  }
+  
+  // Show ACQUIRED notification
+  function showAcquiredNotification(kaboom: KaboomCtx, maskName: string): void {
+    const notification = kaboom.add([
+      kaboom.text(`✨ ACQUIRED: ${maskName} ✨`, { size: 16 }),
+      kaboom.pos(kaboom.width() / 2, kaboom.height() * 0.25),
+      kaboom.anchor("center"),
+      kaboom.color(255, 215, 0), // Gold
+      kaboom.opacity(0),
+      kaboom.z(2000),
+      kaboom.fixed()
+    ]);
+    
+    // Fade in, hold, fade out
+    kaboom.tween(0, 1, 0.4, (val) => { notification.opacity = val; }, kaboom.easings.easeOutQuad);
+    kaboom.wait(2.5, () => {
+      kaboom.tween(1, 0, 0.6, (val) => { notification.opacity = val; }, kaboom.easings.easeInQuad)
+        .onEnd(() => notification.destroy());
     });
   }
 

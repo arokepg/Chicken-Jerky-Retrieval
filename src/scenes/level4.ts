@@ -477,8 +477,7 @@ export function level4Scene(k: KaboomCtx): void {
       goalOverlay.destroy();
       gameState.setPaused(false);
       
-      // Collect mask and proceed
-      gameState.addCollectedMask(MASKS.frozen); // Floor 4: Freeze Mask
+      // Mask already acquired at floor entry
       showDialogue(k, LEVEL_DIALOGUES[4].outro!, () => {
         k.go("gate_opening");
       });
@@ -539,11 +538,36 @@ export function level4Scene(k: KaboomCtx): void {
     updateGameUI(k, ui, maskManager, k.vec2(goalX, goalY), camera);
   });
 
-  // Show intro dialogue
+  // Show intro dialogue - Grant mask at floor ENTRY
   showDialogue(k, LEVEL_DIALOGUES[4].intro, () => {
+    // Grant Freeze Mask on entry to Floor 4
+    gameState.addCollectedMask(MASKS.frozen);
+    gameState.setCurrentMask(MASKS.frozen);
+    showAcquiredNotification(k, "FREEZE MASK");
+    
     gameState.setDialogueActive(false);
     // Show mask description after dialogue
     showMaskDescription(k, 4);
+  });
+}
+
+// Show ACQUIRED notification
+function showAcquiredNotification(k: KaboomCtx, maskName: string): void {
+  const notification = k.add([
+    k.text(`✨ ACQUIRED: ${maskName} ✨`, { size: 16 }),
+    k.pos(k.width() / 2, k.height() * 0.25),
+    k.anchor("center"),
+    k.color(255, 215, 0), // Gold
+    k.opacity(0),
+    k.z(2000),
+    k.fixed()
+  ]);
+  
+  // Fade in, hold, fade out
+  k.tween(0, 1, 0.4, (val) => { notification.opacity = val; }, k.easings.easeOutQuad);
+  k.wait(2.5, () => {
+    k.tween(1, 0, 0.6, (val) => { notification.opacity = val; }, k.easings.easeInQuad)
+      .onEnd(() => notification.destroy());
   });
 }
 
