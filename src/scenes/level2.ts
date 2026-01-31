@@ -247,11 +247,11 @@ export function level2Scene(k: KaboomCtx): void {
 
     // Flash animation
     warning.onUpdate(() => {
-      warning.opacity = 0.15 + Math.sin(k.time() * 8) * 0.1;
+      warning.opacity = 0.15 + Math.sin(k.time() * 12) * 0.15;
     });
 
-    // After 2 seconds, activate the laser (damage zone for 0.5s)
-    k.wait(2.0, () => {
+    // After 1 second, activate the laser (damage zone for 0.5s)
+    k.wait(1.0, () => {
       if (!warning.exists()) return;
       warning.destroy();
 
@@ -313,7 +313,7 @@ export function level2Scene(k: KaboomCtx): void {
       "temporary_junk",
       {
         dir: dir,
-        speed: 35 // VERY SLOW
+        speed: 44 // 25% faster
       }
     ]);
     hazards.push(bubble);
@@ -351,11 +351,11 @@ export function level2Scene(k: KaboomCtx): void {
 
     // Flash animation
     crosshair.onUpdate(() => {
-      crosshair.opacity = 0.3 + Math.sin(k.time() * 10) * 0.3;
+      crosshair.opacity = 0.3 + Math.sin(k.time() * 15) * 0.4;
     });
 
-    // After 2 seconds, fire projectile AT THAT POSITION (not tracking)
-    k.wait(2.0, () => {
+    // After 1 second, fire projectile AT THAT POSITION (not tracking)
+    k.wait(1.0, () => {
       if (!crosshair.exists()) return;
       const savedX = crosshair.pos.x;
       const savedY = crosshair.pos.y;
@@ -378,7 +378,7 @@ export function level2Scene(k: KaboomCtx): void {
         "temporary_junk",
         {
           dir: dir,
-          speed: 80 // Slow projectile
+          speed: 100 // 25% faster
         }
       ]);
       hazards.push(projectile);
@@ -399,9 +399,13 @@ export function level2Scene(k: KaboomCtx): void {
   let phase1Timer = 0;
   let phase2Timer = 0;
   let phase3Timer = 0;
-  const PHASE1_SPAWN_INTERVAL = 2.5; // Spawn laser every 2.5s
-  const PHASE2_SPAWN_INTERVAL = 1.5; // Spawn bubble every 1.5s
-  const PHASE3_SPAWN_INTERVAL = 2.5; // Spawn crosshair every 2.5s
+  let chaosLaserTimer = 0;
+  let chaosBubbleTimer = 0;
+  const PHASE1_SPAWN_INTERVAL = 2.0; // Spawn laser every 2s
+  const PHASE2_SPAWN_INTERVAL = 1.2; // Spawn bubble every 1.2s
+  const PHASE3_SPAWN_INTERVAL = 1.8; // Spawn crosshair every 1.8s
+  const CHAOS_LASER_INTERVAL = 2.5; // Chaos mode laser interval
+  const CHAOS_BUBBLE_INTERVAL = 1.5; // Chaos mode bubble interval
 
   // ============= OPEN ELEVATOR =============
   function openElevator(): void {
@@ -525,16 +529,31 @@ export function level2Scene(k: KaboomCtx): void {
         spawnDebtBubble();
       }
     } else {
-      // PHASE 3: Targeted Shots (10-15s)
+      // PHASE 3: CHAOS MODE - Targeted Shots + Laser Lines + Bubbles (10-15s)
       if (phaseText.exists()) {
-        phaseText.text = "PHASE 3: TARGETED SHOTS";
-        phaseText.color = k.rgb(255, 100, 100);
+        phaseText.text = "PHASE 3: CHAOS MODE!";
+        phaseText.color = k.rgb(255, 50, 50);
       }
       
+      // Crosshairs (main attack)
       phase3Timer += dt;
       if (phase3Timer >= PHASE3_SPAWN_INTERVAL) {
         phase3Timer = 0;
         spawnCrosshair();
+      }
+      
+      // Laser Lines (simultaneous chaos)
+      chaosLaserTimer += dt;
+      if (chaosLaserTimer >= CHAOS_LASER_INTERVAL) {
+        chaosLaserTimer = 0;
+        spawnLaserLine();
+      }
+      
+      // Debt Bubbles (simultaneous chaos)
+      chaosBubbleTimer += dt;
+      if (chaosBubbleTimer >= CHAOS_BUBBLE_INTERVAL) {
+        chaosBubbleTimer = 0;
+        spawnDebtBubble();
       }
     }
 

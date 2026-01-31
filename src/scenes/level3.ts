@@ -65,18 +65,20 @@ export function level3Scene(k: KaboomCtx): void {
   // Create Zed Shadows from map (enemies)
   const enemies = createZedShadowsFromMap(k, map);
 
-  // ============= SẢO ĐỔI NGÔI MECHANIC (TWAN Meme) =============
+  // ============= SẢO ĐỔI NGÔI MECHANIC (HOMING STARS) =============
   interface StarWarning {
     shadow: GameObj<any>;
     timer: number;
-    targetX: number;
-    targetY: number;
+    targetX: number;  // Player X at spawn time
+    targetY: number;  // Player Y at spawn time
+    spawnX: number;   // Where star spawns (top of map)
+    spawnY: number;
     fallen: boolean;
   }
   const starWarnings: StarWarning[] = [];
   let starSpawnTimer = 0;
   const STAR_SPAWN_INTERVAL = 1.2; // Faster than icicles
-  const STAR_FALL_DELAY = 1.5;
+  const STAR_FALL_DELAY = 1.2;     // Warning duration before star fires
   const MAX_STARS = 8;
   let playerStunned = false;
   let stunTimer = 0;
@@ -91,48 +93,50 @@ export function level3Scene(k: KaboomCtx): void {
     k.z(100)
   ]);
 
-  // Function to spawn star warning shadow
+  // Function to spawn star warning shadow - NOW SPAWNS AT RANDOM TOP POSITION
   function spawnStarWarning(): void {
     if (starWarnings.filter(w => !w.fallen).length >= MAX_STARS) return;
 
-    // Target area near player
-    const offsetX = k.rand(-80, 80);
-    const offsetY = k.rand(-80, 80);
-    let targetX = k.clamp(player.pos.x + offsetX, TILE_SIZE * 2, map.width - TILE_SIZE * 2);
-    let targetY = k.clamp(player.pos.y + offsetY, TILE_SIZE * 2, map.height - TILE_SIZE * 2);
+    // Spawn at random X position at the TOP of the map
+    const spawnX = k.rand(TILE_SIZE * 2, map.width - TILE_SIZE * 2);
+    const spawnY = TILE_SIZE; // Top of map
+    
+    // Calculate direction towards player (at spawn time - linear, not tracking)
+    const playerTargetX = player.pos.x;
+    const playerTargetY = player.pos.y;
 
-    // Occasionally target player directly
-    if (k.rand() < 0.25) {
-      targetX = player.pos.x;
-      targetY = player.pos.y;
-    }
-
-    // Create golden star shadow
+    // Create warning indicator at spawn position (top)
     const shadow = k.add([
       k.circle(8),
-      k.pos(targetX, targetY),
+      k.pos(spawnX, spawnY),
       k.anchor("center"),
       k.color(255, 215, 0), // Gold
-      k.opacity(0.2),
-      k.z(1),
+      k.opacity(0.4),
+      k.z(50),
       "star-shadow"
     ]);
 
     starWarnings.push({
       shadow,
       timer: 0,
-      targetX,
-      targetY,
+      targetX: playerTargetX,  // Store player pos at spawn time
+      targetY: playerTargetY,
+      spawnX: spawnX,          // Store spawn position
+      spawnY: spawnY,
       fallen: false
     });
   }
 
-  // Function to drop star
+  // Function to drop star - NOW FLIES TOWARDS PLAYER
   function dropStar(warning: StarWarning): void {
     warning.fallen = true;
     warning.shadow.destroy();
 
-    // Create falling star (golden)
+    // Calculate direction from spawn towards player position (captured at warning time)
+    const dir = k.vec2(warning.targetX - warning.spawnX, warning.targetY - warning.spawnY).unit();
+    const angle = Math.atan2(dir.y, dir.x) * (180 / Math.PI) + 90; // Rotate to face movement direction
+
+    // Create homing star (golden)
     const star = k.add([
       k.polygon([
         k.vec2(0, -12),
@@ -146,28 +150,41 @@ export function level3Scene(k: KaboomCtx): void {
         k.vec2(-12, -4),
         k.vec2(-3, -4)
       ]),
-      k.pos(warning.targetX, warning.targetY - 150),
+      k.pos(warning.spawnX, warning.spawnY),
       k.anchor("center"),
+      k.rotate(angle), // Rotate to face direction of movement
       k.color(255, 215, 0),
       k.outline(2, k.rgb(255, 180, 0)),
+      k.area({ shape: new k.Rect(k.vec2(0), 20, 20), scale: k.vec2(0.5, 0.5) }),
       k.z(50),
-      "falling-star"
+      "falling-star",
+      {
+        dir: dir,
+        speed: 180, // Fast homing speed
+        lifetime: 3 // Destroy after 3 seconds
+      }
     ]);
 
-    // Fall animation
-    k.tween(warning.targetY - 150, warning.targetY, 0.25, (y) => {
-      star.pos.y = y;
-    }, k.easings.easeInQuad).onEnd(() => {
-      // Impact
-      camera.shake(5, 0.15);
-
-      // Check if player is hit
-      const dist = player.pos.dist(k.vec2(warning.targetX, warning.targetY));
-      if (dist < 25 && !gameState.isPlayerEthereal() && !gameState.isInvincible()) {
+    // Linear movement towards target (not tracking continuously)
+    star.onUpdate(() => {
+      star.pos = star.pos.add(star.dir.scale(star.speed * k.dt()));
+      star.lifetime -= k.dt();
+      
+      // Destroy if off-screen or lifetime expired
+      if (star.pos.x < -TILE_SIZE || star.pos.x > map.width + TILE_SIZE ||
+          star.pos.y < -TILE_SIZE || star.pos.y > map.height + TILE_SIZE ||
+          star.lifetime <= 0) {
+        star.destroy();
+        return;
+      }
+      
+      // Check collision with player
+      const dist = player.pos.dist(star.pos);
+      if (dist < 18 && !gameState.isPlayerEthereal() && !gameState.isInvincible()) {
         // Stun player! (turns yellow)
         playerStunned = true;
         stunTimer = 0;
-        player.color = k.rgb(255, 215, 0); // Turn yellow when stunned
+        player.color = k.rgb(255, 215, 0);
         camera.shake(10, 0.3);
         
         // Show stun effect
@@ -181,35 +198,10 @@ export function level3Scene(k: KaboomCtx): void {
         k.wait(STUN_DURATION, () => {
           if (stunIndicator.exists()) stunIndicator.destroy();
         });
+        
+        // Destroy star on hit
+        star.destroy();
       }
-
-      // Create golden sparkle particles
-      for (let i = 0; i < 8; i++) {
-        const particle = k.add([
-          k.circle(3),
-          k.pos(warning.targetX, warning.targetY),
-          k.anchor("center"),
-          k.color(255, 215, 0),
-          k.opacity(1),
-          k.z(49),
-          {
-            vel: k.vec2(k.rand(-100, 100), k.rand(-120, -30)),
-            life: 0.6
-          }
-        ]);
-        particle.onUpdate(() => {
-          particle.pos = particle.pos.add(particle.vel.scale(k.dt()));
-          particle.vel.y += 250 * k.dt(); // gravity
-          particle.opacity -= k.dt() * 1.5;
-          particle.life -= k.dt();
-          if (particle.life <= 0) particle.destroy();
-        });
-      }
-
-      // Remove star after brief display
-      k.wait(0.2, () => {
-        if (star.exists()) star.destroy();
-      });
     });
   }
 

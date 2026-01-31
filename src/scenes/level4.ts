@@ -197,10 +197,19 @@ export function level4Scene(k: KaboomCtx): void {
   // Random names pool for Red Players (Fan Áo Đỏ) - Updated with new names
   const NAME_POOL = ["Anh Lực", "Anh Long", "Anh Vực", "Anh Những", "Anh Thể", "A Hoàng", "Vuốt Phó", "A Núi", "A Bủ", "Mắc Hài"];
 
-  // Create Red Players (Football players)
+  // Create Red Players (Football players) - ensuring safe distance from player spawn
   for (let i = 0; i < RED_PLAYER_COUNT; i++) {
-    const x = k.rand(TILE_SIZE * 3, map.width - TILE_SIZE * 3);
-    const y = k.rand(TILE_SIZE * 3, map.height - TILE_SIZE * 3);
+    let x = k.rand(TILE_SIZE * 3, map.width - TILE_SIZE * 3);
+    let y = k.rand(TILE_SIZE * 3, map.height - TILE_SIZE * 3);
+    
+    // Ensure red players don't spawn too close to player spawn point
+    let attempts = 0;
+    while (k.vec2(x, y).dist(k.vec2(playerSpawn.x, playerSpawn.y)) < TILE_SIZE * 4 && attempts < 10) {
+      x = k.rand(TILE_SIZE * 3, map.width - TILE_SIZE * 3);
+      y = k.rand(TILE_SIZE * 3, map.height - TILE_SIZE * 3);
+      attempts++;
+    }
+    
     const randomName = NAME_POOL[Math.floor(k.rand(0, NAME_POOL.length))];
     
     const redPlayer = k.add([
@@ -437,13 +446,13 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     k.pos(x, y),
     k.anchor("center"),
     k.area(),
-    k.body(),
+    k.body(), // Use default physics
     k.color(79, 195, 247),
     k.opacity(1),
     k.z(10),
     "player",
     {
-      speed: 90,
+      speed: 100, // Slightly faster for dodging
       dir: k.vec2(0, 0),
       knockbackVel: k.vec2(0, 0) // Velocity-based knockback
     }
