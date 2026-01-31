@@ -132,7 +132,7 @@ export function level2Scene(k: KaboomCtx): void {
   const projectiles: GameObj<any>[] = [];
   const slipperyZones: GameObj<any>[] = [];
   let projectileSpawnTimer = 0;
-  const PROJECTILE_SPAWN_INTERVAL = 3.0; // Much slower projectile spawns (was 2.5)
+  const PROJECTILE_SPAWN_INTERVAL = 4.0; // NERFED: Very slow spawns (was 3.0)
   const PROJECTILE_TYPES = ["rocket", "diamond", "egg"] as const;
   type ProjectileType = typeof PROJECTILE_TYPES[number];
 
@@ -141,30 +141,30 @@ export function level2Scene(k: KaboomCtx): void {
     const toPlayer = player.pos.sub(tuSePos);
     const dir = toPlayer.unit();
     
-    // ============= WARNING INDICATOR (1.0s before firing) =============
+    // ============= WARNING INDICATOR (2.0s before firing) =============
     // Phase 1: Draw a THIN, semi-transparent RED LINE where attack will go
     const warningAngle = Math.atan2(dir.y, dir.x) * (180 / Math.PI);
     const warningLength = Math.max(map.width, map.height) * 1.5; // Extend across entire screen
     
     const warningLine = k.add([
-      k.rect(warningLength, 3), // Thin line
+      k.rect(warningLength, 4), // Thin but visible line
       k.pos(tuSePos.x, tuSePos.y + 30),
       k.anchor("left"),
       k.rotate(warningAngle),
       k.color(255, 50, 50),
-      k.opacity(0.3), // Semi-transparent
+      k.opacity(0.25), // Semi-transparent
       k.z(7),
       "warning_line",
       "temporary_junk" // Tag for cleanup on win
     ]);
     
-    // Phase 2: Flash the warning line slowly (player can see and react)
+    // Phase 2: Flash the warning line slowly (player has 2 FULL SECONDS to react)
     warningLine.onUpdate(() => {
-      warningLine.opacity = 0.2 + Math.sin(k.time() * 8) * 0.15; // Slower, subtler pulse
+      warningLine.opacity = 0.15 + Math.sin(k.time() * 6) * 0.1; // Very slow, subtle pulse
     });
     
-    // Phase 3: After 1.0s, fire actual projectile
-    k.wait(1.0, () => {
+    // Phase 3: After 2.0s, fire actual projectile (quick burst)
+    k.wait(2.0, () => {
       if (warningLine.exists()) warningLine.destroy();
       actuallySpawnProjectile(type, dir, tuSePos);
     });
@@ -174,12 +174,12 @@ export function level2Scene(k: KaboomCtx): void {
     let projectile: GameObj<any>;
     
     if (type === "rocket") {
-      // Fast straight line - smaller hitbox for precision dodging
+      // Fast straight line - TINY hitbox for fair dodging
       projectile = k.add([
         k.polygon([k.vec2(-6, -3), k.vec2(6, 0), k.vec2(-6, 3)]),
         k.pos(tuSePos.x, tuSePos.y + 30),
         k.anchor("center"),
-        k.area({ shape: new k.Rect(k.vec2(0, 0), 8, 5), scale: k.vec2(0.6, 0.6) }),
+        k.area({ shape: new k.Rect(k.vec2(0, 0), 6, 3), scale: k.vec2(0.4, 0.4) }), // TINY hitbox
         k.rotate(Math.atan2(dir.y, dir.x) * (180 / Math.PI)),
         k.color(255, 100, 50),
         k.z(8),
@@ -189,16 +189,16 @@ export function level2Scene(k: KaboomCtx): void {
         {
           projType: "rocket",
           dir: dir,
-          speed: 120 // Nerfed speed for dodgeability
+          speed: 90 // NERFED: Very slow (was 120)
         }
       ]);
     } else if (type === "diamond") {
-      // Bounces off walls - smaller hitbox
+      // Bounces off walls - TINY hitbox
       projectile = k.add([
         k.polygon([k.vec2(0, -6), k.vec2(6, 0), k.vec2(0, 6), k.vec2(-6, 0)]),
         k.pos(tuSePos.x, tuSePos.y + 30),
         k.anchor("center"),
-        k.area({ shape: new k.Rect(k.vec2(0, 0), 8, 8), scale: k.vec2(0.6, 0.6) }),
+        k.area({ shape: new k.Rect(k.vec2(0, 0), 6, 6), scale: k.vec2(0.4, 0.4) }), // TINY hitbox
         k.color(100, 200, 255),
         k.z(8),
         "projectile",
@@ -207,9 +207,9 @@ export function level2Scene(k: KaboomCtx): void {
         {
           projType: "diamond",
           dir: k.vec2(k.rand(-1, 1), k.rand(0.3, 1)).unit(),
-          speed: 70, // Nerfed speed
+          speed: 50, // NERFED: Very slow (was 70)
           bounces: 0,
-          maxBounces: 3 // Fewer bounces
+          maxBounces: 2 // Fewer bounces (was 3)
         }
       ]);
       // Sparkle effect
